@@ -1,82 +1,55 @@
-import axios from 'axios';
-import { createClient } from '@supabase/supabase-js';
+import { panda } from './src/panda';
 import dotenv from 'dotenv';
 import path from 'path';
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-const PANDAUTH_API = 'https://api.pandauth.com/api/v1';
-const API_KEY = process.env.PANDAUTH_API_KEY || '';
-const headers = { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' };
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-async function testDeleteEndpoints(keyValue: string) {
-    const endpoints = [
-        { method: 'DELETE', url: `${PANDAUTH_API}/keys/api/key?key=${keyValue}` },
-        { method: 'DELETE', url: `${PANDAUTH_API}/keys/api/generated-key?key=${keyValue}` },
-        { method: 'DELETE', url: `${PANDAUTH_API}/keys/${keyValue}` },
-        { method: 'POST', url: `${PANDAUTH_API}/keys/api/delete`, data: { key: keyValue } },
-        { method: 'POST', url: `${PANDAUTH_API}/keys/api/remove`, data: { key: keyValue } },
-        { method: 'PATCH', url: `${PANDAUTH_API}/keys/api/key`, data: { key: keyValue, expirationDays: 30 } },
-        { method: 'PUT', url: `${PANDAUTH_API}/keys/api/key`, data: { key: keyValue, expirationDays: 30 } },
-        { method: 'POST', url: `${PANDAUTH_API}/keys/api/update`, data: { key: keyValue, expirationDays: 30 } },
-    ];
-
-    console.log(`\n🔍 Testing API endpoints for key: ${keyValue}\n`);
-
-    for (const ep of endpoints) {
-        try {
-            const res = await axios({
-                method: ep.method as any,
-                url: ep.url,
-                headers,
-                data: ep.data,
-                validateStatus: () => true // Don't throw on any status
-            });
-            console.log(`${ep.method} ${ep.url.replace(PANDAUTH_API, '')}`);
-            console.log(`  Status: ${res.status}`);
-            console.log(`  Response: ${JSON.stringify(res.data).substring(0, 200)}`);
-            console.log('');
-        } catch (err: any) {
-            console.log(`${ep.method} ${ep.url.replace(PANDAUTH_API, '')}`);
-            console.log(`  Error: ${err.message}`);
-            console.log('');
-        }
-    }
-}
-
 async function main() {
-    console.log('=== Pandauth API Endpoint Discovery ===\n');
-    console.log(`API Key: ${API_KEY ? API_KEY.substring(0, 10) + '...' : 'MISSING'}`);
-    console.log(`Supabase URL: ${supabaseUrl ? 'OK' : 'MISSING'}`);
+    console.log('=== Pandauth API Integration Test ===\n');
 
-    // First, get a test key from Supabase
-    if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: keys } = await supabase.from('keys').select('*').limit(1);
-        
-        if (keys && keys.length > 0) {
-            const testKey = keys[0].key_value;
-            console.log(`\nTest key from DB: ${testKey}`);
-            
-            // First get key info
-            try {
-                const info = await axios.get(`${PANDAUTH_API}/keys/api/generated-key?key=${testKey}`, { headers, validateStatus: () => true });
-                console.log(`\nKey info status: ${info.status}`);
-                console.log(`Key info: ${JSON.stringify(info.data).substring(0, 500)}`);
-            } catch (e: any) {
-                console.log(`Get key error: ${e.message}`);
-            }
+    // 1. Test Service Status
+    console.log('1. Fetching service status...');
+    const status = await panda.getServiceStatus();
+    console.log('   Status:', status ? JSON.stringify(status) : 'No data / check API key');
 
-            await testDeleteEndpoints(testKey);
-        } else {
-            console.log('No keys found in DB');
-        }
-    } else {
-        console.log('Supabase not configured, testing with dummy key');
-        await testDeleteEndpoints('VIP-TEST-0000-0000-0000');
+    // 2. Generate a Key with Discord ID and Note
+    console.log('\n2. Testing key generation...');
+    const testDiscordId = '123456789012345678';
+    try {
+        const key = await panda.generateKey({
+            prefix: 'VIP',
+            expirationType: 'byDays',
+            expirationDays: 30,
+            isPremium: true,
+            noHwidValidation: false,
+            discordId: testDiscordId,
+            note: `Test Key (Discord: ${testDiscordId})`
+        });
+        console.log(`   ✅ Key generated successfully: ${key}`);
+
+        // 3. Check Key info
+        console.log('\n3. Fetching key details...');
+        const keyInfo = await panda.getKey(key);
+        console.log(`   Key info:`, keyInfo);
+
+        // 4. Fetch Keys by Discord ID
+        console.log('\n4. Fetching keys by Discord ID...');
+        const userKeys = await panda.getKeysByDiscord(testDiscordId);
+        console.log(`   Keys bound to Discord ID ${testDiscordId}:`, userKeys);
+
+        // 5. Extend Key
+        console.log('\n5. Extending key by 30 days...');
+        const extendRes = await panda.extendKey(key, 30);
+        console.log(`   Extend result:`, extendRes);
+
+        // 6. Delete Test Key (clean up)
+        console.log('\n6. Cleaning up test key...');
+        const delRes = await panda.deleteKey(key);
+        console.log(`   Delete result:`, delRes);
+
+        console.log('\n🎉 All tests completed successfully!');
+    } catch (err: any) {
+        console.error('❌ Test failed with error:', err.message);
     }
 }
 
