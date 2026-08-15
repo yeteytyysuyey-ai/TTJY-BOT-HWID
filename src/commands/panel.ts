@@ -24,7 +24,7 @@ export function renderPanel(state: any) {
         container.addMediaGalleryComponents(
             new MediaGalleryBuilder().addItems(
                 new MediaGalleryItemBuilder()
-                    .setURL('https://raw.githubusercontent.com/Yumiara/SSL-TTJY/main/TJYS.png')
+                    .setURL('https://media.discordapp.net/attachments/1466400064913150158/1477246553906348052/Simple_Showcase.png?ex=6a818c90&is=6a803b10&hm=b5484e1d2d261615c2aa692257acf3046ecae1fab2e4b9148a7c963230c990b3&=&format=webp&quality=lossless')
                     .setDescription('TTJY Hub Banner')
             )
         );
