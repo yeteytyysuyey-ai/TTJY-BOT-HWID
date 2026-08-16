@@ -44,7 +44,8 @@ export function renderPanel(state: any) {
                 new ButtonBuilder().setCustomId('keys').setLabel('Show Keys').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId('show_hwids').setLabel('Show HWIDs').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId('add').setLabel('Add HWID').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId('remove').setLabel('Remove HWID').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId('remove').setLabel('Remove HWID').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('reset_hwid').setLabel('Reset HWID').setStyle(ButtonStyle.Danger)
             )
         );
 

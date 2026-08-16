@@ -136,6 +136,20 @@ async function handleButton(interaction: ButtonInteraction) {
             await interaction.showModal(showModal);
             return;
 
+        case 'reset_hwid':
+            const resetModal = new ModalBuilder()
+                .setCustomId('modal_reset_hwid')
+                .setTitle('Reset Key HWID');
+            const resetKeyInput = new TextInputBuilder()
+                .setCustomId('input_key_value')
+                .setLabel('Key Value (e.g. VIP-XXXX)')
+                .setPlaceholder('Enter key to reset HWID')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            resetModal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(resetKeyInput));
+            await interaction.showModal(resetModal);
+            return;
+
         case 'buy':
             const modal = new ModalBuilder()
                 .setCustomId('modal_buy')
@@ -291,7 +305,7 @@ async function handleButton(interaction: ButtonInteraction) {
                     expirationType: "byDays",
                     expirationDays: 30,
                     isPremium: true,
-                    noHwidValidation: false,
+                    noHwidValidation: true,
                     discordId: userId,
                     note: `${customName} (Discord: ${userId})`
                 });
@@ -607,7 +621,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 expirationType: "byDays",
                 expirationDays: 30,
                 isPremium: true,
-                noHwidValidation: false,
+                noHwidValidation: true,
                 discordId: interaction.user.id,
                 note: `${customName} (Discord: ${interaction.user.id})`
             });
@@ -701,6 +715,13 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply('Failed to save HWID to database.');
             }
 
+            // Sync unbind with Pandauth so it doesn't reject new HWIDs
+            try {
+                await panda.resetHwid(keyValue);
+            } catch (e) {
+                // Ignore pandauth reset errors
+            }
+
             return interaction.editReply(`Successfully bound HWID **${customName}** to key \`${keyValue}\`.`);
 
         } catch (err) {
@@ -788,11 +809,45 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply('Failed to remove HWID from database.');
             }
 
-            return interaction.editReply(`Successfully removed HWID \`${hwidValue}\` from key \`${keyValue}\`.`);
+            return interaction.editReply(`Successfully removed HWID **${hwidValue}** from key \`${keyValue}\`.`);
 
         } catch (err) {
             console.error(err);
             return interaction.editReply('System error processing HWID removal.');
+        }
+    }
+
+    else if (customId === 'modal_reset_hwid') {
+        const keyValue = interaction.fields.getTextInputValue('input_key_value');
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            // 1. Verify key ownership if Supabase is connected
+            if (supabase) {
+                const { data, error: fetchError } = await supabase
+                    .from('keys')
+                    .select('*')
+                    .eq('key_value', keyValue)
+                    .eq('discord_id', interaction.user.id);
+
+                if (fetchError || !data || data.length === 0) {
+                    return interaction.editReply('Invalid key or you do not own this key.');
+                }
+
+                // Clear bound HWIDs array in Supabase
+                await supabase
+                    .from('keys')
+                    .update({ hwids: [] })
+                    .eq('id', data[0].id);
+            }
+
+            // 2. Reset HWID in Pandauth
+            await panda.resetHwid(keyValue);
+
+            return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\n\nYour key is now ready to use on your new device/PC without Error 300.`);
+        } catch (err: any) {
+            console.error("Reset HWID Error:", err);
+            return interaction.editReply(`Error resetting HWID: ${err.message || String(err)}`);
         }
     }
 

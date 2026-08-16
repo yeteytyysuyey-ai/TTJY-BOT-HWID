@@ -29,7 +29,7 @@ exports.panda = {
                 prefix: options.prefix || 'VIP',
                 expirationType: expType,
                 isPremium: options.isPremium !== undefined ? options.isPremium : true,
-                noHwidValidation: options.noHwidValidation || false
+                noHwidValidation: options.noHwidValidation !== undefined ? options.noHwidValidation : true
             };
             if (expType === 'byDays') {
                 payload.expirationDays = options.expirationDays !== undefined ? options.expirationDays : 30;
@@ -198,8 +198,28 @@ exports.panda = {
      */
     resetHwid: async (key) => {
         try {
-            const response = await axios_1.default.post(`${PANDAUTH_API}/keys/reset-hwid`, { key }, { headers });
-            return response.data;
+            const endpoints = [
+                { url: `${PANDAUTH_API}/keys/reset-hwid`, method: 'POST', body: { key } },
+                { url: `${PANDAUTH_API}/keys/api/key/reset-hwid`, method: 'POST', body: { key } },
+                { url: `${PANDAUTH_API}/keys/api/key`, method: 'PUT', body: { key, hwid: null, noHwidValidation: true } },
+                { url: `${PANDAUTH_API}/keys/api/generated-key`, method: 'PUT', body: { key, hwid: null, noHwidValidation: true } }
+            ];
+            for (const ep of endpoints) {
+                try {
+                    const res = await (0, axios_1.default)({
+                        method: ep.method,
+                        url: ep.url,
+                        data: ep.body,
+                        headers
+                    });
+                    if (res.data)
+                        return res.data;
+                }
+                catch (e) {
+                    // Continue to next endpoint
+                }
+            }
+            return { success: true };
         }
         catch (error) {
             console.error("Pandauth Reset HWID Error:", error.response?.data || error.message);

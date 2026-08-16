@@ -9,12 +9,12 @@ function renderPanel(state) {
     if (state.page === 'main') {
         container.addTextDisplayComponents(new discord_js_1.TextDisplayBuilder().setContent('# TTJY Hub'));
         container.addMediaGalleryComponents(new discord_js_1.MediaGalleryBuilder().addItems(new discord_js_1.MediaGalleryItemBuilder()
-            .setURL('https://raw.githubusercontent.com/Yumiara/SSL-TTJY/main/TJYS.png')
+            .setURL('https://media.discordapp.net/attachments/1466400064913150158/1477246553906348052/Simple_Showcase.png?ex=6a818c90&is=6a803b10&hm=b5484e1d2d261615c2aa692257acf3046ecae1fab2e4b9148a7c963230c990b3&=&format=webp&quality=lossless')
             .setDescription('TTJY Hub Banner')));
         new discord_js_1.TextDisplayBuilder().setContent('Premium license management');
         container.addSeparatorComponents(new discord_js_1.SeparatorBuilder().setDivider(true).setSpacing(discord_js_1.SeparatorSpacingSize.Small));
         container.addTextDisplayComponents(new discord_js_1.TextDisplayBuilder().setContent('**License Management**'));
-        container.addActionRowComponents(new discord_js_1.ActionRowBuilder().addComponents(new discord_js_1.ButtonBuilder().setCustomId('keys').setLabel('Show Keys').setStyle(discord_js_1.ButtonStyle.Primary), new discord_js_1.ButtonBuilder().setCustomId('show_hwids').setLabel('Show HWIDs').setStyle(discord_js_1.ButtonStyle.Primary), new discord_js_1.ButtonBuilder().setCustomId('add').setLabel('Add HWID').setStyle(discord_js_1.ButtonStyle.Success), new discord_js_1.ButtonBuilder().setCustomId('remove').setLabel('Remove HWID').setStyle(discord_js_1.ButtonStyle.Danger)));
+        container.addActionRowComponents(new discord_js_1.ActionRowBuilder().addComponents(new discord_js_1.ButtonBuilder().setCustomId('keys').setLabel('Show Keys').setStyle(discord_js_1.ButtonStyle.Primary), new discord_js_1.ButtonBuilder().setCustomId('show_hwids').setLabel('Show HWIDs').setStyle(discord_js_1.ButtonStyle.Primary), new discord_js_1.ButtonBuilder().setCustomId('add').setLabel('Add HWID').setStyle(discord_js_1.ButtonStyle.Success), new discord_js_1.ButtonBuilder().setCustomId('remove').setLabel('Remove HWID').setStyle(discord_js_1.ButtonStyle.Secondary), new discord_js_1.ButtonBuilder().setCustomId('reset_hwid').setLabel('Reset HWID').setStyle(discord_js_1.ButtonStyle.Danger)));
         container.addSeparatorComponents(new discord_js_1.SeparatorBuilder().setDivider(true).setSpacing(discord_js_1.SeparatorSpacingSize.Small));
         container.addTextDisplayComponents(new discord_js_1.TextDisplayBuilder().setContent('**Monthly Pricing**'));
         container.addActionRowComponents(new discord_js_1.ActionRowBuilder().addComponents(
