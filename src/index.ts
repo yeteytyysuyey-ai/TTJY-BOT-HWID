@@ -11,9 +11,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMessages
+        GatewayIntentBits.DirectMessages
     ],
     partials: [Partials.Channel, Partials.Message],
 });
