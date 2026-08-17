@@ -248,6 +248,153 @@ async function handleButton(interaction) {
             renewCcModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(renewCcKeyInput), new discord_js_1.ActionRowBuilder().addComponents(renewCcInput));
             await interaction.showModal(renewCcModal);
             return;
+        // ===== ADMIN DM PANEL BUTTONS =====
+        case 'admin_btn_gen':
+            const adminGenModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_gen')
+                .setTitle('Create VIP Key for User');
+            const gUserInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_target_user')
+                .setLabel('Target Discord User ID or Mention')
+                .setPlaceholder('e.g. 123456789012345678')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            const gDaysInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_days')
+                .setLabel('Key Validity Days')
+                .setPlaceholder('30')
+                .setValue('30')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            const gNameInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_key_name')
+                .setLabel('Key Custom Name')
+                .setPlaceholder('e.g. VIP-Customer')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(false);
+            adminGenModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(gUserInput), new discord_js_1.ActionRowBuilder().addComponents(gDaysInput), new discord_js_1.ActionRowBuilder().addComponents(gNameInput));
+            await interaction.showModal(adminGenModal);
+            return;
+        case 'admin_btn_find':
+            const adminFindModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_find')
+                .setTitle('Find Keys by User ID or Key');
+            const fQueryInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_query')
+                .setLabel('Discord User ID or Key Value')
+                .setPlaceholder('e.g. 123456789012345678 or VIP-XXXX')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            adminFindModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(fQueryInput));
+            await interaction.showModal(adminFindModal);
+            return;
+        case 'admin_btn_reset':
+            const adminResetModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_reset')
+                .setTitle('Reset HWID for Any Key');
+            const rstKeyInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_key_value')
+                .setLabel('Key Value to Reset')
+                .setPlaceholder('VIP-XXXX-XXXX-XXXX')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            adminResetModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(rstKeyInput));
+            await interaction.showModal(adminResetModal);
+            return;
+        case 'admin_btn_extend':
+            const adminExtModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_extend')
+                .setTitle('Extend Key Expiration');
+            const extKeyInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_key_value')
+                .setLabel('Key Value to Extend')
+                .setPlaceholder('VIP-XXXX-XXXX-XXXX')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            const extDaysInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_days')
+                .setLabel('Days to Add')
+                .setPlaceholder('30')
+                .setValue('30')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            adminExtModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(extKeyInput), new discord_js_1.ActionRowBuilder().addComponents(extDaysInput));
+            await interaction.showModal(adminExtModal);
+            return;
+        case 'admin_btn_delete':
+            const adminDelModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_delete')
+                .setTitle('Delete Key from System');
+            const delKeyInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_key_value')
+                .setLabel('Key Value to Delete')
+                .setPlaceholder('VIP-XXXX-XXXX-XXXX')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            adminDelModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(delKeyInput));
+            await interaction.showModal(adminDelModal);
+            return;
+        case 'admin_btn_addhwid':
+            const adminAddHwidModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_add_hwid')
+                .setTitle('Add HWID for Key');
+            const ahKeyInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_key_value')
+                .setLabel('Key Value')
+                .setPlaceholder('VIP-XXXX-XXXX-XXXX')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            const ahHwidInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_hwid_value')
+                .setLabel('HWID String')
+                .setPlaceholder('Paste HWID here')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            const ahNameInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_hwid_name')
+                .setLabel('HWID Label / Device Name')
+                .setPlaceholder('e.g. PC 2')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(false);
+            adminAddHwidModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(ahKeyInput), new discord_js_1.ActionRowBuilder().addComponents(ahHwidInput), new discord_js_1.ActionRowBuilder().addComponents(ahNameInput));
+            await interaction.showModal(adminAddHwidModal);
+            return;
+        case 'admin_btn_delhwid':
+            const adminDelHwidModal = new discord_js_1.ModalBuilder()
+                .setCustomId('modal_admin_del_hwid')
+                .setTitle('Remove HWID from Key');
+            const dhKeyInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_key_value')
+                .setLabel('Key Value')
+                .setPlaceholder('VIP-XXXX-XXXX-XXXX')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            const dhHwidInput = new discord_js_1.TextInputBuilder()
+                .setCustomId('input_hwid_value')
+                .setLabel('HWID String to Remove')
+                .setPlaceholder('Paste HWID here')
+                .setStyle(discord_js_1.TextInputStyle.Short)
+                .setRequired(true);
+            adminDelHwidModal.addComponents(new discord_js_1.ActionRowBuilder().addComponents(dhKeyInput), new discord_js_1.ActionRowBuilder().addComponents(dhHwidInput));
+            await interaction.showModal(adminDelHwidModal);
+            return;
+        case 'admin_btn_stats':
+            await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+            try {
+                if (!supabase_1.supabase) {
+                    return interaction.editReply('Database not initialized.');
+                }
+                const { data: keysData, error: sErr } = await supabase_1.supabase.from('keys').select('*');
+                if (sErr || !keysData) {
+                    return interaction.editReply('Failed to fetch statistics.');
+                }
+                const totalKeys = keysData.length;
+                const uniqueUsers = new Set(keysData.map((k) => k.discord_id)).size;
+                return interaction.editReply(`📊 **Key Statistics:**\n• Total Customers: **${uniqueUsers}** users\n• Total Active Keys: **${totalKeys}** keys`);
+            }
+            catch (err) {
+                return interaction.editReply(`Error: ${err.message}`);
+            }
     }
     // Fallback for V1 buttons (if any are still active)
     if (customId.startsWith('approve_cc_') || customId.startsWith('approve_renew_cc_')) {
@@ -878,6 +1025,207 @@ async function handleModal(interaction) {
         catch (err) {
             console.error('Error sending renew DM to admin:', err);
             return interaction.editReply('Failed to send renewal request to admin.');
+        }
+    }
+    // ===== ADMIN MODAL: CREATE / GENERATE KEY FOR USER =====
+    else if (customId === 'modal_admin_gen') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const rawUser = interaction.fields.getTextInputValue('input_target_user');
+        const targetUserId = rawUser.replace(/[<@!>]/g, '').trim();
+        const days = parseInt(interaction.fields.getTextInputValue('input_days')) || 30;
+        const keyName = interaction.fields.getTextInputValue('input_key_name') || `VIP Key (${days} Days)`;
+        try {
+            const generatedKey = await panda_1.panda.generateKey({
+                count: 1,
+                prefix: "VIP",
+                expirationType: "byDays",
+                expirationDays: days,
+                isPremium: true,
+                noHwidValidation: true,
+                discordId: targetUserId,
+                note: `${keyName} (Discord: ${targetUserId})`
+            });
+            if (supabase_1.supabase) {
+                await supabase_1.supabase.from('keys').insert([{
+                        discord_id: targetUserId,
+                        custom_name: keyName,
+                        key_value: generatedKey,
+                        hwids: []
+                    }]);
+            }
+            // Attempt DM to user
+            let dmNotice = '✅ Sent key to user via DM.';
+            try {
+                const targetUser = await interaction.client.users.fetch(targetUserId);
+                if (targetUser) {
+                    await targetUser.send(`🎉 **You received a VIP Key from Admin!**\n\n**Key:** \`${generatedKey}\`\n**Name:** \`${keyName}\`\n**Validity:** \`${days} days\``);
+                }
+            }
+            catch (e) {
+                dmNotice = '⚠️ Could not DM user (DM closed).';
+            }
+            return interaction.editReply(`✅ **Key Created Successfully!**\n\n• **User:** <@${targetUserId}> (\`${targetUserId}\`)\n• **Key:** \`${generatedKey}\`\n• **Name:** \`${keyName}\`\n• **Days:** ${days}\n• **Status:** ${dmNotice}`);
+        }
+        catch (err) {
+            console.error("Admin Modal Gen Error:", err);
+            return interaction.editReply(`❌ Error creating key: ${err.message || String(err)}`);
+        }
+    }
+    // ===== ADMIN MODAL: FIND KEYS =====
+    else if (customId === 'modal_admin_find') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const query = interaction.fields.getTextInputValue('input_query').trim();
+        const cleanQuery = query.replace(/[<@!>]/g, '');
+        try {
+            let foundKeys = [];
+            if (supabase_1.supabase) {
+                const { data } = await supabase_1.supabase
+                    .from('keys')
+                    .select('*')
+                    .or(`discord_id.eq.${cleanQuery},key_value.eq.${query}`);
+                if (data)
+                    foundKeys = data;
+            }
+            if (foundKeys.length === 0) {
+                return interaction.editReply(`❌ No keys found matching \`${query}\`.`);
+            }
+            let resultText = `🔍 **Search Results for:** \`${query}\` (${foundKeys.length} keys found)\n\n`;
+            for (const [i, k] of foundKeys.entries()) {
+                const hwids = k.hwids || [];
+                resultText += `**${i + 1}. ${k.custom_name}** (<@${k.discord_id}>)\nKey: \`${k.key_value}\`\nHWIDs (${hwids.length}/3):\n`;
+                if (hwids.length > 0) {
+                    hwids.forEach((h, hi) => {
+                        resultText += `  • \`${h.hwid_value}\` (${h.custom_name})\n`;
+                    });
+                }
+                else {
+                    resultText += `  • (None bound)\n`;
+                }
+                resultText += '\n';
+            }
+            return interaction.editReply(resultText);
+        }
+        catch (err) {
+            return interaction.editReply(`❌ Search Error: ${err.message}`);
+        }
+    }
+    // ===== ADMIN MODAL: RESET HWID =====
+    else if (customId === 'modal_admin_reset') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
+        try {
+            if (supabase_1.supabase) {
+                await supabase_1.supabase.from('keys').update({ hwids: [] }).eq('key_value', keyValue);
+            }
+            await panda_1.panda.resetHwid(keyValue);
+            return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\nAll HWIDs unlinked in Database and Pandauth.`);
+        }
+        catch (err) {
+            return interaction.editReply(`❌ Reset Error: ${err.message}`);
+        }
+    }
+    // ===== ADMIN MODAL: EXTEND KEY =====
+    else if (customId === 'modal_admin_extend') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
+        const days = parseInt(interaction.fields.getTextInputValue('input_days')) || 30;
+        try {
+            await panda_1.panda.extendKey(keyValue, days);
+            return interaction.editReply(`✅ **Key Extended Successfully!**\nKey: \`${keyValue}\`\nAdded: **+${days} days**.`);
+        }
+        catch (err) {
+            return interaction.editReply(`❌ Extend Error: ${err.message}`);
+        }
+    }
+    // ===== ADMIN MODAL: DELETE KEY =====
+    else if (customId === 'modal_admin_delete') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
+        try {
+            if (supabase_1.supabase) {
+                await supabase_1.supabase.from('keys').delete().eq('key_value', keyValue);
+            }
+            try {
+                await panda_1.panda.deleteKey(keyValue);
+            }
+            catch (p) { }
+            return interaction.editReply(`🗑️ **Key Deleted Successfully!**\nKey: \`${keyValue}\` removed from system.`);
+        }
+        catch (err) {
+            return interaction.editReply(`❌ Delete Error: ${err.message}`);
+        }
+    }
+    // ===== ADMIN MODAL: ADD HWID =====
+    else if (customId === 'modal_admin_add_hwid') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
+        const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
+        const hwidName = interaction.fields.getTextInputValue('input_hwid_name').trim() || 'Admin Added HWID';
+        try {
+            if (!supabase_1.supabase)
+                return interaction.editReply('Database not initialized.');
+            const { data } = await supabase_1.supabase.from('keys').select('*').eq('key_value', keyValue);
+            if (!data || data.length === 0)
+                return interaction.editReply(`❌ Key \`${keyValue}\` not found in database.`);
+            const keyRecord = data[0];
+            const currentHwids = keyRecord.hwids || [];
+            if (currentHwids.length >= 3)
+                return interaction.editReply(`❌ Key already has 3 HWIDs bound.`);
+            currentHwids.push({ custom_name: hwidName, hwid_value: hwidValue });
+            await supabase_1.supabase.from('keys').update({ hwids: currentHwids }).eq('id', keyRecord.id);
+            try {
+                await panda_1.panda.resetHwid(keyValue);
+            }
+            catch (e) { }
+            return interaction.editReply(`✅ **Added HWID!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\` (${hwidName})\nCount: ${currentHwids.length}/3`);
+        }
+        catch (err) {
+            return interaction.editReply(`❌ Error: ${err.message}`);
+        }
+    }
+    // ===== ADMIN MODAL: REMOVE HWID =====
+    else if (customId === 'modal_admin_del_hwid') {
+        await interaction.deferReply({ flags: discord_js_1.MessageFlags.Ephemeral });
+        const adminId = process.env.ADMIN_ID;
+        if (interaction.user.id !== adminId)
+            return interaction.editReply('Unauthorized.');
+        const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
+        const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
+        try {
+            if (!supabase_1.supabase)
+                return interaction.editReply('Database not initialized.');
+            const { data } = await supabase_1.supabase.from('keys').select('*').eq('key_value', keyValue);
+            if (!data || data.length === 0)
+                return interaction.editReply(`❌ Key \`${keyValue}\` not found in database.`);
+            const keyRecord = data[0];
+            const currentHwids = keyRecord.hwids || [];
+            const newHwids = currentHwids.filter((h) => h.hwid_value !== hwidValue);
+            if (newHwids.length === currentHwids.length) {
+                return interaction.editReply(`❌ HWID \`${hwidValue}\` not found in this key.`);
+            }
+            await supabase_1.supabase.from('keys').update({ hwids: newHwids }).eq('id', keyRecord.id);
+            return interaction.editReply(`✅ **Removed HWID!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\``);
+        }
+        catch (err) {
+            return interaction.editReply(`❌ Error: ${err.message}`);
         }
     }
 }

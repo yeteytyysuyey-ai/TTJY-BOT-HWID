@@ -4,15 +4,18 @@ import path from 'path';
 import { panelCommand } from './commands/panel';
 import { statsCommand } from './commands/stats';
 import { handleInteraction } from './events/interactionCreate';
+import { handleMessageCreate } from './events/messageCreate';
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.DirectMessages
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessages
     ],
-    partials: [Partials.Channel],
+    partials: [Partials.Channel, Partials.Message],
 });
 
 const token = process.env.DISCORD_TOKEN;
@@ -46,6 +49,14 @@ client.on('interactionCreate', async (interaction) => {
         await handleInteraction(interaction);
     } catch (error) {
         console.error('Error handling interaction:', error);
+    }
+});
+
+client.on('messageCreate', async (message) => {
+    try {
+        await handleMessageCreate(message);
+    } catch (error) {
+        console.error('Error handling messageCreate:', error);
     }
 });
 

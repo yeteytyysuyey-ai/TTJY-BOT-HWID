@@ -9,13 +9,16 @@ const path_1 = __importDefault(require("path"));
 const panel_1 = require("./commands/panel");
 const stats_1 = require("./commands/stats");
 const interactionCreate_1 = require("./events/interactionCreate");
+const messageCreate_1 = require("./events/messageCreate");
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '..', '.env') });
 const client = new discord_js_1.Client({
     intents: [
         discord_js_1.GatewayIntentBits.Guilds,
-        discord_js_1.GatewayIntentBits.DirectMessages
+        discord_js_1.GatewayIntentBits.DirectMessages,
+        discord_js_1.GatewayIntentBits.MessageContent,
+        discord_js_1.GatewayIntentBits.GuildMessages
     ],
-    partials: [discord_js_1.Partials.Channel],
+    partials: [discord_js_1.Partials.Channel, discord_js_1.Partials.Message],
 });
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -45,6 +48,14 @@ client.on('interactionCreate', async (interaction) => {
     }
     catch (error) {
         console.error('Error handling interaction:', error);
+    }
+});
+client.on('messageCreate', async (message) => {
+    try {
+        await (0, messageCreate_1.handleMessageCreate)(message);
+    }
+    catch (error) {
+        console.error('Error handling messageCreate:', error);
     }
 });
 if (token) {
