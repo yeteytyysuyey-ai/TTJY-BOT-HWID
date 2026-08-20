@@ -11,7 +11,6 @@ import { panda } from '../panda';
 export async function handleMessageCreate(message: Message) {
     if (message.author.bot) return;
 
-    // Only process Direct Messages (DM)
     if (message.guildId) return;
 
     const adminId = process.env.ADMIN_ID;
@@ -25,17 +24,15 @@ export async function handleMessageCreate(message: Message) {
     const args = content.slice(1).split(/\s+/);
     const command = args[0].toLowerCase();
 
-    // Helper to clean Discord user mentions <@123456789> -> 123456789
     const cleanUserId = (input: string) => {
         if (!input) return '';
         return input.replace(/[<@!>]/g, '');
     };
 
-    // 1. HELP / ADMIN PANEL MENU
     if (command === 'help' || command === 'admin' || command === 'panel' || command === 'menu') {
         const embed = new EmbedBuilder()
             .setTitle('👑 TTJY Admin Control Center (แผงควบคุมแอดมิน)')
-            .setDescription('จัดการ Key, เพิ่ม/ลบ/รีเซ็ต HWID, และต่ออายุ Key ของผู้ใช้อื่นได้โดยตรงผ่านแชทนี้\n\n**HWID ถูกจัดการผ่าน Database โดยตรง (1 HWID per key)**')
+            .setDescription('จัดการ Key, เพิ่ม/ลบ/รีเซ็ต HWID, และต่ออายุ Key ของผู้ใช้อื่นได้โดยตรงผ่านแชทนี้\n\n**HWID ถูกจัดการผ่าน Database โดยตรง (Max: 3 HWID per key)**')
             .setColor('#7289da')
             .addFields(
                 {
@@ -45,8 +42,8 @@ export async function handleMessageCreate(message: Message) {
                         '• `!del <Key>` - ลบ Key ของคนอื่นออกจากระบบ',
                         '• `!reset <Key>` - รีเซ็ต HWID ของ Key นั้น (DB only)',
                         '• `!extend <Key> [Days=30]` - ต่ออายุ Key เพิ่ม X วัน',
-                        '• `!addhwid <Key> <HWID>` - ผูก HWID ให้ Key (1 per key)',
-                        '• `!delhwid <Key>` - ลบ HWID ออกจาก Key',
+                        '• `!addhwid <Key> <HWID>` - ผูก HWID ให้ Key (Max 3)',
+                        '• `!delhwid <Key> [HWID]` - ลบ HWID ออกจาก Key',
                         '• `!keys <@User|ID>` - ดู Key และ HWID ทั้งหมดของคนนั้น',
                         '• `!key <Key>` - ดูรายละเอียดของ Key นั้น',
                         '• `!stats` - ดูสถิติการขายและยอดรวมทั้งหมด'
@@ -74,7 +71,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 2. GENERATE / ADD KEY FOR OTHERS (!gen <userId> [days] [keyName])
     if (command === 'gen' || command === 'create' || command === 'addkey') {
         const rawUser = args[1];
         if (!rawUser) {
@@ -99,13 +95,16 @@ export async function handleMessageCreate(message: Message) {
                 note: `${keyName} (Discord: ${targetUserId})`
             });
 
-            // Write to DB — hwid starts as null (unbound)
             if (supabase) {
-                const { error: dbErr } = await supabase.from('keys').insert([{ discord_id: targetUserId, custom_name: keyName, key_value: generatedKey, hwids: [] }]);
+                const { error: dbErr } = await supabase.from('keys').insert([{
+                    discord_id: targetUserId,
+                    custom_name: keyName,
+                    key_value: generatedKey,
+                    hwids: []
+                }]);
                 if (dbErr) console.error("Supabase Admin Gen Insert Error:", dbErr);
             }
 
-            // Send key directly to user in DM
             let dmStatus = '✅ ส่ง Key ไปยัง DM ของลูกค้าเรียบร้อย';
             try {
                 const targetUser = await message.client.users.fetch(targetUserId);
@@ -137,7 +136,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 3. RESET HWID (!reset <key>) — DB only, no Panda call
     if (command === 'reset' || command === 'resethwid' || command === 'rhwid') {
         const keyValue = args[1];
         if (!keyValue) {
@@ -153,7 +151,6 @@ export async function handleMessageCreate(message: Message) {
                 return;
             }
 
-            // Clear HWID in DB only — HWID is managed entirely in our database
             const { error } = await supabase
                 .from('keys')
                 .update({ hwids: [] })
@@ -169,7 +166,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 4. EXTEND KEY (!extend <key> [days])
     if (command === 'extend' || command === 'renew' || command === 'adddays') {
         const keyValue = args[1];
         const days = parseInt(args[2]) || 30;
@@ -191,7 +187,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 5. DELETE KEY (!del <key> / !delete <key>)
     if (command === 'del' || command === 'delete' || command === 'removekey') {
         const keyValue = args[1];
         if (!keyValue) {
@@ -202,17 +197,12 @@ export async function handleMessageCreate(message: Message) {
         const statusMsg = await message.reply(`⏳ กำลังลบ Key \`${keyValue}\` ออกจากระบบ...`);
 
         try {
-            // Remove from DB first
             if (supabase) {
                 await supabase.from('keys').delete().eq('key_value', keyValue);
             }
-
-            // Also remove from Panda (best-effort)
             try {
                 await panda.deleteKey(keyValue);
-            } catch (pErr) {
-                console.warn("Pandauth delete warning (non-fatal):", pErr);
-            }
+            } catch (pErr) {}
 
             await statusMsg.edit(`🗑️ **ลบ Key สำเร็จ!**\nKey \`${keyValue}\` ถูกลบออกจากระบบและ Pandauth เรียบร้อยแล้ว`);
         } catch (err: any) {
@@ -222,7 +212,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 6. BIND HWID TO KEY (!addhwid <key> <hwid>) — 1 HWID per key, DB only
     if (command === 'addhwid' || command === 'bind') {
         const keyValue = args[1];
         const hwidValue = args[2];
@@ -247,16 +236,24 @@ export async function handleMessageCreate(message: Message) {
             }
 
             const keyRecord = data[0];
+            let currentHwids = keyRecord.hwids || [];
+            
+            if (!currentHwids.find((h: any) => (h.hwid_value || h) === hwidValue)) {
+                if (currentHwids.length >= 3) {
+                    await statusMsg.edit(`❌ Key \`${keyValue}\` ผูก HWID ครบ 3 เครื่องแล้วครับ (Max: 3)`);
+                    return;
+                }
+                currentHwids.push({ custom_name: 'Admin Added', hwid_value: hwidValue });
+            }
 
-            // Admin can force-overwrite existing HWID
             const { error: updateErr } = await supabase
                 .from('keys')
-                .update({ hwids: [{ custom_name: 'Admin Added', hwid_value: hwidValue }] })
+                .update({ hwids: currentHwids })
                 .eq('id', keyRecord.id);
 
             if (updateErr) throw new Error(updateErr.message);
 
-            await statusMsg.edit(`✅ **ผูก HWID สำเร็จ!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\`\n\n*(ระบบ 1 HWID per key — เขียนลง Database โดยตรง)*`);
+            await statusMsg.edit(`✅ **ผูก HWID สำเร็จ!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\`\n\n*(ระบบ Max 3 HWID per key — เขียนลง Database โดยตรง)*`);
         } catch (err: any) {
             console.error("Admin Add HWID Error:", err);
             await statusMsg.edit(`❌ เกิดข้อผิดพลาดในการผูก HWID: ${err.message || String(err)}`);
@@ -264,12 +261,12 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 7. REMOVE HWID FROM A KEY (!delhwid <key>)
     if (command === 'delhwid' || command === 'removehwid') {
         const keyValue = args[1];
+        const hwidValue = args[2];
 
         if (!keyValue) {
-            await message.reply('❌ รูปแบบคำสั่งไม่ถูกต้อง:\n`!delhwid <Key Value>`');
+            await message.reply('❌ รูปแบบคำสั่งไม่ถูกต้อง:\n`!delhwid <Key Value> [HWID ที่ต้องการลบ (เว้นว่างเพื่อลบทั้งหมด)]`');
             return;
         }
 
@@ -280,11 +277,28 @@ export async function handleMessageCreate(message: Message) {
                 await statusMsg.edit('❌ Database is not initialized.');
                 return;
             }
+            
+            const { data, error: fetchErr } = await supabase.from('keys').select('*').eq('key_value', keyValue);
+            if (fetchErr || !data || data.length === 0) {
+                await statusMsg.edit(`❌ ไม่พบ Key \`${keyValue}\` ในฐานข้อมูล`);
+                return;
+            }
+            const keyRecord = data[0];
+            let newHwids: any[] = [];
+            
+            if (hwidValue) {
+                let currentHwids = keyRecord.hwids || [];
+                newHwids = currentHwids.filter((h: any) => (h.hwid_value || h) !== hwidValue);
+                if (newHwids.length === currentHwids.length) {
+                     await statusMsg.edit(`❌ ไม่พบ HWID \`${hwidValue}\` ใน Key นี้`);
+                     return;
+                }
+            }
 
             const { error } = await supabase
                 .from('keys')
-                .update({ hwids: [] })
-                .eq('key_value', keyValue);
+                .update({ hwids: newHwids })
+                .eq('id', keyRecord.id);
 
             if (error) throw new Error(error.message);
 
@@ -296,7 +310,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 8. VIEW KEYS FOR A SPECIFIC USER (!keys <userId> / !user <userId>)
     if (command === 'keys' || command === 'user' || command === 'find') {
         const rawUser = args[1];
         if (!rawUser) {
@@ -326,8 +339,11 @@ export async function handleMessageCreate(message: Message) {
                 .setTimestamp();
 
             for (const [idx, k] of userKeys.entries()) {
-                const currentHwid = (k.hwids && k.hwids.length > 0) ? (k.hwids[0].hwid_value || k.hwids[0]) : null;
-                const hwidDisplay = currentHwid ? `${currentHwid}` : '*(ยังไม่ผูก)*';
+                let hwidDisplay = '*(ยังไม่ผูก)*';
+                if (k.hwids && k.hwids.length > 0) {
+                    hwidDisplay = k.hwids.map((h: any) => `\`${h.hwid_value || h}\``).join(', ');
+                }
+                
                 embed.addFields({
                     name: `${idx + 1}. ${k.custom_name || 'VIP Key'}`,
                     value: `**Key:** \`${k.key_value}\`\n**สร้างเมื่อ:** <t:${Math.floor(new Date(k.created_at).getTime() / 1000)}:R>\n**HWID:** ${hwidDisplay}`
@@ -342,7 +358,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 9. VIEW SPECIFIC KEY DETAILS (!key <keyValue>)
     if (command === 'key') {
         const keyValue = args[1];
         if (!keyValue) {
@@ -364,8 +379,10 @@ export async function handleMessageCreate(message: Message) {
                 return;
             }
 
-            const currentHwid = (keyRecord.hwids && keyRecord.hwids.length > 0) ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null;
-            const hwidDisplay = currentHwid ? `${currentHwid}` : 'ไม่มี HWID ผูกไว้';
+            let hwidDisplay = 'ไม่มี HWID ผูกไว้';
+            if (keyRecord.hwids && keyRecord.hwids.length > 0) {
+                hwidDisplay = keyRecord.hwids.map((h: any, i: number) => `${i+1}. \`${h.hwid_value || h}\``).join('\n');
+            }
 
             const embed = new EmbedBuilder()
                 .setTitle(`🔑 ข้อมูล Key: \`${keyValue}\``)
@@ -386,7 +403,6 @@ export async function handleMessageCreate(message: Message) {
         return;
     }
 
-    // 10. STATS / INFO
     if (command === 'stats' || command === 'info') {
         if (!supabase) {
             await message.reply('Database is not initialized.');
