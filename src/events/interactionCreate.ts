@@ -398,13 +398,11 @@ async function handleButton(interaction: ButtonInteraction) {
                 if (!supabase) {
                     return interaction.editReply('Database not initialized.');
                 }
-                const { data: keysData, error: sErr } = await supabase.from('keys').select('*');
-                if (sErr || !keysData) {
-                    return interaction.editReply('Failed to fetch statistics.');
-                }
+                const { data: keysData, error: sErr } = await supabase.from('keys').select('key_value, hwids');
+                if (sErr || !keysData) return interaction.editReply('Failed to fetch statistics.');
                 const totalKeys = keysData.length;
-                const uniqueUsers = new Set(keysData.map((k: any) => k.discord_id)).size;
-                return interaction.editReply(`📊 **Key Statistics:**\n• Total Customers: **${uniqueUsers}** users\n• Total Active Keys: **${totalKeys}** keys`);
+                const boundHwids = keysData.filter((k: any) => k.hwids && k.hwids.length > 0).length;
+                return interaction.editReply(`📊 **Key Statistics:**\n• Total Active Keys: **${totalKeys}** keys\n• HWID Bound: **${boundHwids}** keys`);
             } catch (err: any) {
                 return interaction.editReply(`Error: ${err.message}`);
             }
@@ -465,7 +463,7 @@ async function handleButton(interaction: ButtonInteraction) {
                         discord_id: userId,
                         custom_name: customName,
                         key_value: generatedKey,
-                        hwid: null
+                        hwids: []
                     }]);
                     if (insertErr) {
                         console.error("Supabase Insertion Error (Cash Card):", insertErr);
@@ -662,7 +660,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                         discord_id: interaction.user.id,
                         custom_name: customName,
                         key_value: generatedKey,
-                        hwid: null
+                        hwids: []
                     }]);
 
                 if (dbError) {
@@ -715,14 +713,14 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             const keyRecord = data[0];
 
             // 2. Enforce 1 HWID per key policy
-            if (keyRecord.hwid) {
-                return interaction.editReply(`❌ **This key already has an HWID bound.**\nCurrent HWID: \`${keyRecord.hwid}\`\n\nUse **Reset HWID** first if you want to rebind.`);
+            if ((keyRecord.hwids && keyRecord.hwids.length > 0 ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null)) {
+                return interaction.editReply(`❌ **This key already has an HWID bound.**\nCurrent HWID: \`${(keyRecord.hwids && keyRecord.hwids.length > 0 ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null)}\`\n\nUse **Reset HWID** first if you want to rebind.`);
             }
 
             // 3. Write HWID to DB (single value — no array)
             const { error: updateError } = await supabase
                 .from('keys')
-                .update({ hwid: hwidValue })
+                .update({ hwids: [{ custom_name: 'Device', hwid_value: hwidValue }] })
                 .eq('id', keyRecord.id);
 
             if (updateError) {
@@ -748,11 +746,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
 
         try {
-            const { data, error: fetchError } = await supabase
-                .from('keys')
-                .select('*')
-                .eq('key_value', keyValue)
-                .eq('discord_id', interaction.user.id);
+            const pandaKeyRes = await panda.getKey(keyValue);
+            if (!pandaKeyRes || !pandaKeyRes.data || (pandaKeyRes.data.discordId !== interaction.user.id && pandaKeyRes.data.discord_id !== interaction.user.id)) {
+                return interaction.editReply('Invalid key or you do not own this key.');
+            }
+            const { data, error: fetchError } = await supabase.from('keys').select('*').eq('key_value', keyValue);
 
             if (fetchError || !data || data.length === 0) {
                 return interaction.editReply('Invalid key or you do not own this key.');
@@ -760,11 +758,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
             const keyRecord = data[0];
 
-            if (!keyRecord.hwid) {
+            if (!(keyRecord.hwids && keyRecord.hwids.length > 0 ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null)) {
                 return interaction.editReply(`**Key:** \`${keyValue}\`\n\n⚠️ No HWID is currently bound to this key.\nUse **Add HWID** to bind your device.`);
             }
 
-            return interaction.editReply(`**Key:** \`${keyValue}\`\n\n**Bound HWID:**\n\`${keyRecord.hwid}\``);
+            return interaction.editReply(`**Key:** \`${keyValue}\`\n\n**Bound HWID:**\n\`${(keyRecord.hwids && keyRecord.hwids.length > 0 ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null)}\``);
         } catch (e) {
             console.error("Show HWID Error:", e);
             return interaction.editReply('Failed to fetch HWID data.');
@@ -783,11 +781,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
 
         try {
-            const { data, error: fetchError } = await supabase
-                .from('keys')
-                .select('*')
-                .eq('key_value', keyValue)
-                .eq('discord_id', interaction.user.id);
+            const pandaKeyRes = await panda.getKey(keyValue);
+            if (!pandaKeyRes || !pandaKeyRes.data || (pandaKeyRes.data.discordId !== interaction.user.id && pandaKeyRes.data.discord_id !== interaction.user.id)) {
+                return interaction.editReply('Invalid key or you do not own this key.');
+            }
+            const { data, error: fetchError } = await supabase.from('keys').select('*').eq('key_value', keyValue);
 
             if (fetchError || !data || data.length === 0) {
                 return interaction.editReply('Invalid key or you do not own this key.');
@@ -795,13 +793,13 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
             const keyRecord = data[0];
 
-            if (keyRecord.hwid !== hwidValue) {
+            if ((keyRecord.hwids && keyRecord.hwids.length > 0 ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null) !== hwidValue) {
                 return interaction.editReply('That HWID is not bound to this key.');
             }
 
             const { error: updateError } = await supabase
                 .from('keys')
-                .update({ hwid: null })
+                .update({ hwids: [] })
                 .eq('id', keyRecord.id);
 
             if (updateError) {
@@ -827,11 +825,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
 
         try {
-            const { data, error: fetchError } = await supabase
-                .from('keys')
-                .select('*')
-                .eq('key_value', keyValue)
-                .eq('discord_id', interaction.user.id);
+            const pandaKeyRes = await panda.getKey(keyValue);
+            if (!pandaKeyRes || !pandaKeyRes.data || (pandaKeyRes.data.discordId !== interaction.user.id && pandaKeyRes.data.discord_id !== interaction.user.id)) {
+                return interaction.editReply('Invalid key or you do not own this key.');
+            }
+            const { data, error: fetchError } = await supabase.from('keys').select('*').eq('key_value', keyValue);
 
             if (fetchError || !data || data.length === 0) {
                 return interaction.editReply('Invalid key or you do not own this key.');
@@ -840,7 +838,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             // Clear HWID in DB only — no Panda call needed
             await supabase
                 .from('keys')
-                .update({ hwid: null })
+                .update({ hwids: [] })
                 .eq('id', data[0].id);
 
             return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\n\nYour key is now unbound. Use **Add HWID** to bind your new device.`);
@@ -860,11 +858,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         try {
             // Verify key belongs to user in Supabase
             if (supabase) {
-                const { data, error: fetchError } = await supabase
-                    .from('keys')
-                    .select('*')
-                    .eq('key_value', keyValue)
-                    .eq('discord_id', interaction.user.id);
+                const pandaKeyRes = await panda.getKey(keyValue);
+            if (!pandaKeyRes || !pandaKeyRes.data || (pandaKeyRes.data.discordId !== interaction.user.id && pandaKeyRes.data.discord_id !== interaction.user.id)) {
+                return interaction.editReply('Invalid key or you do not own this key.');
+            }
+            const { data, error: fetchError } = await supabase.from('keys').select('*').eq('key_value', keyValue);
 
                 if (fetchError || !data || data.length === 0) {
                     return interaction.editReply('ไม่พบ Key นี้ในบัญชีของคุณ กรุณาตรวจสอบ Key อีกครั้ง');
@@ -953,11 +951,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (supabase) {
-            const { data, error: fetchError } = await supabase
-                .from('keys')
-                .select('*')
-                .eq('key_value', keyValue)
-                .eq('discord_id', interaction.user.id);
+            const pandaKeyRes = await panda.getKey(keyValue);
+            if (!pandaKeyRes || !pandaKeyRes.data || (pandaKeyRes.data.discordId !== interaction.user.id && pandaKeyRes.data.discord_id !== interaction.user.id)) {
+                return interaction.editReply('Invalid key or you do not own this key.');
+            }
+            const { data, error: fetchError } = await supabase.from('keys').select('*').eq('key_value', keyValue);
 
             if (fetchError || !data || data.length === 0) {
                 return interaction.editReply('ไม่พบ Key นี้ในบัญชีของคุณ กรุณาตรวจสอบ Key อีกครั้ง');
@@ -1026,7 +1024,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                     discord_id: targetUserId,
                     custom_name: keyName,
                     key_value: generatedKey,
-                    hwid: null
+                    hwids: []
                 }]);
             }
 
@@ -1094,7 +1092,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             if (!supabase) return interaction.editReply('Database not initialized.');
 
             // Reset HWID in DB only — no Panda call
-            const { error } = await supabase.from('keys').update({ hwid: null }).eq('key_value', keyValue);
+            const { error } = await supabase.from('keys').update({ hwids: [] }).eq('key_value', keyValue);
             if (error) throw new Error(error.message);
 
             return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\nHWID cleared in database. User can now rebind on a new device.`);
@@ -1159,7 +1157,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             const keyRecord = data[0];
 
             // Overwrite HWID (admin can force-bind)
-            const { error } = await supabase.from('keys').update({ hwid: hwidValue }).eq('id', keyRecord.id);
+            const { error } = await supabase.from('keys').update({ hwids: [{ custom_name: 'Device', hwid_value: hwidValue }] }).eq('id', keyRecord.id);
             if (error) throw new Error(error.message);
 
             return interaction.editReply(`✅ **HWID Bound!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\``);
@@ -1185,11 +1183,11 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
             const keyRecord = data[0];
 
-            if (keyRecord.hwid !== hwidValue) {
+            if ((keyRecord.hwids && keyRecord.hwids.length > 0 ? (keyRecord.hwids[0].hwid_value || keyRecord.hwids[0]) : null) !== hwidValue) {
                 return interaction.editReply(`❌ HWID \`${hwidValue}\` is not bound to this key.`);
             }
 
-            const { error } = await supabase.from('keys').update({ hwid: null }).eq('id', keyRecord.id);
+            const { error } = await supabase.from('keys').update({ hwids: [] }).eq('id', keyRecord.id);
             if (error) throw new Error(error.message);
 
             return interaction.editReply(`✅ **Removed HWID!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\` cleared.`);
