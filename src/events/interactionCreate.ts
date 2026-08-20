@@ -110,13 +110,6 @@ async function handleButton(interaction: ButtonInteraction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        const nameInput = new TextInputBuilder()
-            .setCustomId('input_hwid_name')
-            .setLabel('Device Name')
-            .setPlaceholder('e.g. Main PC / Laptop / Phone')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
         const hwidInput = new TextInputBuilder()
             .setCustomId('input_hwid_value')
             .setLabel('HWID String')
@@ -126,7 +119,6 @@ async function handleButton(interaction: ButtonInteraction) {
 
         modal.addComponents(
             new ActionRowBuilder<TextInputBuilder>().addComponents(keyInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(hwidInput)
         );
         return interaction.showModal(modal);
@@ -669,7 +661,6 @@ async function handleModal(interaction: ModalSubmitInteraction) {
     // ===== 3. USER: ADD HWID (Max 3 Devices) =====
     else if (customId === 'modal_add_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
-        const customName = interaction.fields.getTextInputValue('input_hwid_name').trim();
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
 
         await interaction.deferReply({ ephemeral: true });
@@ -703,8 +694,8 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply(`❌ **Limit Reached!**\nThis key already has **3 HWIDs** bound to it (Max: 3).\nPlease remove an existing HWID first using **Remove HWID** or **Reset HWID**.`);
             }
 
-            // Append new HWID object
-            currentHwids.push({ custom_name: customName || 'Device', hwid_value: hwidValue });
+            // Append new HWID object (defaults to Device)
+            currentHwids.push({ custom_name: 'Device', hwid_value: hwidValue });
 
             const { error: updateError } = await supabase
                 .from('keys')
@@ -716,7 +707,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply('❌ Failed to save HWID to database.');
             }
 
-            return interaction.editReply(`✅ **HWID Bound Successfully! (${currentHwids.length}/3 Devices)**\n\n🔑 **Key:** \`${keyValue}\`\n🖥️ **Device:** \`${customName}\`\n📋 **HWID:** \`${hwidValue}\``);
+            return interaction.editReply(`✅ **HWID Bound Successfully! (${currentHwids.length}/3 Devices)**\n\n🔑 **Key:** \`${keyValue}\`\n📋 **HWID:** \`${hwidValue}\``);
 
         } catch (err: any) {
             console.error("Add HWID Modal Error:", err);
