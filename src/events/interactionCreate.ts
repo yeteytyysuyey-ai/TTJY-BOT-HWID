@@ -1,11 +1,11 @@
-import { 
-    Interaction, 
-    ModalBuilder, 
-    TextInputBuilder, 
-    TextInputStyle, 
-    ActionRowBuilder, 
-    ModalSubmitInteraction, 
-    ButtonInteraction, 
+import {
+    Interaction,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder,
+    ModalSubmitInteraction,
+    ButtonInteraction,
     EmbedBuilder,
     ButtonBuilder,
     ButtonStyle
@@ -41,7 +41,7 @@ async function handleButton(interaction: ButtonInteraction) {
     const { customId } = interaction;
 
     // ===== 1. PANEL BUTTONS =====
-    
+
     // Show Keys
     if (customId === 'keys') {
         await interaction.deferReply({ ephemeral: true });
@@ -110,6 +110,13 @@ async function handleButton(interaction: ButtonInteraction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
+        const nameInput = new TextInputBuilder()
+            .setCustomId('input_hwid_name')
+            .setLabel('custom_name')
+            .setPlaceholder('e.g. PC / Laptop / My Device')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
         const hwidInput = new TextInputBuilder()
             .setCustomId('input_hwid_value')
             .setLabel('HWID String')
@@ -119,6 +126,7 @@ async function handleButton(interaction: ButtonInteraction) {
 
         modal.addComponents(
             new ActionRowBuilder<TextInputBuilder>().addComponents(keyInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(hwidInput)
         );
         return interaction.showModal(modal);
@@ -661,6 +669,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
     // ===== 3. USER: ADD HWID (Max 3 Devices) =====
     else if (customId === 'modal_add_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
+        const customName = interaction.fields.getTextInputValue('input_hwid_name').trim();
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
 
         await interaction.deferReply({ ephemeral: true });
@@ -694,8 +703,8 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply(`❌ **Limit Reached!**\nThis key already has **3 HWIDs** bound to it (Max: 3).\nPlease remove an existing HWID first using **Remove HWID** or **Reset HWID**.`);
             }
 
-            // Append new HWID object (defaults to Device)
-            currentHwids.push({ custom_name: 'Device', hwid_value: hwidValue });
+            // Append new HWID object with custom_name
+            currentHwids.push({ custom_name: customName || 'Device', hwid_value: hwidValue });
 
             const { error: updateError } = await supabase
                 .from('keys')
@@ -707,7 +716,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply('❌ Failed to save HWID to database.');
             }
 
-            return interaction.editReply(`✅ **HWID Bound Successfully! (${currentHwids.length}/3 Devices)**\n\n🔑 **Key:** \`${keyValue}\`\n📋 **HWID:** \`${hwidValue}\``);
+            return interaction.editReply(`✅ **HWID Bound Successfully! (${currentHwids.length}/3)**\n\n🔑 **Key:** \`${keyValue}\`\n🏷️ **custom_name:** \`${customName}\`\n📋 **HWID:** \`${hwidValue}\``);
 
         } catch (err: any) {
             console.error("Add HWID Modal Error:", err);
@@ -740,12 +749,13 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             const hwidsList = keyRecord.hwids || [];
 
             if (hwidsList.length === 0) {
-                return interaction.editReply(`🔑 **Key:** \`${keyValue}\`\n\n⚠️ No HWIDs are currently bound to this key (0/3 devices). Use **Add HWID** to bind.`);
+                return interaction.editReply(`🔑 **Key:** \`${keyValue}\`\n\n⚠️ No HWIDs are currently bound to this key (0/3). Use **Add HWID** to bind.`);
             }
 
             let result = `🔑 **Key:** \`${keyValue}\`\n\n**Bound Devices (${hwidsList.length}/3):**\n`;
             hwidsList.forEach((h: any, i: number) => {
-                result += `${i + 1}. **${h.custom_name || 'Device'}**: \`${h.hwid_value || h}\`\n`;
+                const devName = h.custom_name ? `**${h.custom_name}**: ` : '';
+                result += `${i + 1}. ${devName}\`${h.hwid_value || h}\`\n`;
             });
 
             return interaction.editReply(result);
@@ -1041,10 +1051,10 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             let resultText = `🔍 **Search Results for:** \`${query}\` (${foundKeys.length} keys found)\n\n`;
             for (const [i, k] of foundKeys.entries()) {
                 const hwidsList = k.hwids || [];
-                const hwidDisplay = hwidsList.length > 0 
+                const hwidDisplay = hwidsList.length > 0
                     ? hwidsList.map((h: any) => `\`${h.hwid_value || h}\``).join(', ')
                     : '(None bound)';
-                resultText += `**${i+1}. ${k.custom_name}** (<@${k.discord_id}>)\nKey: \`${k.key_value}\`\nHWIDs (${hwidsList.length}/3): ${hwidDisplay}\n\n`;
+                resultText += `**${i + 1}. ${k.custom_name}** (<@${k.discord_id}>)\nKey: \`${k.key_value}\`\nHWIDs (${hwidsList.length}/3): ${hwidDisplay}\n\n`;
             }
 
             return interaction.editReply(resultText);
@@ -1104,7 +1114,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             }
             try {
                 await panda.deleteKey(keyValue);
-            } catch (p) {}
+            } catch (p) { }
             return interaction.editReply(`🗑️ **Key Deleted Successfully!**\nKey: \`${keyValue}\` removed from system.`);
         } catch (err: any) {
             return interaction.editReply(`❌ Delete Error: ${err.message}`);

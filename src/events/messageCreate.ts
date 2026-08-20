@@ -1,9 +1,9 @@
-import { 
-    Message, 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle 
+import {
+    Message,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
 } from 'discord.js';
 import { supabase } from '../supabase';
 import { panda } from '../panda';
@@ -202,7 +202,7 @@ export async function handleMessageCreate(message: Message) {
             }
             try {
                 await panda.deleteKey(keyValue);
-            } catch (pErr) {}
+            } catch (pErr) { }
 
             await statusMsg.edit(`🗑️ **ลบ Key สำเร็จ!**\nKey \`${keyValue}\` ถูกลบออกจากระบบและ Pandauth เรียบร้อยแล้ว`);
         } catch (err: any) {
@@ -237,7 +237,7 @@ export async function handleMessageCreate(message: Message) {
 
             const keyRecord = data[0];
             let currentHwids = keyRecord.hwids || [];
-            
+
             if (!currentHwids.find((h: any) => (h.hwid_value || h) === hwidValue)) {
                 if (currentHwids.length >= 3) {
                     await statusMsg.edit(`❌ Key \`${keyValue}\` ผูก HWID ครบ 3 เครื่องแล้วครับ (Max: 3)`);
@@ -277,7 +277,7 @@ export async function handleMessageCreate(message: Message) {
                 await statusMsg.edit('❌ Database is not initialized.');
                 return;
             }
-            
+
             const { data, error: fetchErr } = await supabase.from('keys').select('*').eq('key_value', keyValue);
             if (fetchErr || !data || data.length === 0) {
                 await statusMsg.edit(`❌ ไม่พบ Key \`${keyValue}\` ในฐานข้อมูล`);
@@ -285,13 +285,13 @@ export async function handleMessageCreate(message: Message) {
             }
             const keyRecord = data[0];
             let newHwids: any[] = [];
-            
+
             if (hwidValue) {
                 let currentHwids = keyRecord.hwids || [];
                 newHwids = currentHwids.filter((h: any) => (h.hwid_value || h) !== hwidValue);
                 if (newHwids.length === currentHwids.length) {
-                     await statusMsg.edit(`❌ ไม่พบ HWID \`${hwidValue}\` ใน Key นี้`);
-                     return;
+                    await statusMsg.edit(`❌ ไม่พบ HWID \`${hwidValue}\` ใน Key นี้`);
+                    return;
                 }
             }
 
@@ -343,7 +343,7 @@ export async function handleMessageCreate(message: Message) {
                 if (k.hwids && k.hwids.length > 0) {
                     hwidDisplay = k.hwids.map((h: any) => `\`${h.hwid_value || h}\``).join(', ');
                 }
-                
+
                 embed.addFields({
                     name: `${idx + 1}. ${k.custom_name || 'VIP Key'}`,
                     value: `**Key:** \`${k.key_value}\`\n**สร้างเมื่อ:** <t:${Math.floor(new Date(k.created_at).getTime() / 1000)}:R>\n**HWID:** ${hwidDisplay}`
@@ -379,9 +379,10 @@ export async function handleMessageCreate(message: Message) {
                 return;
             }
 
-            let hwidDisplay = 'ไม่มี HWID ผูกไว้';
-            if (keyRecord.hwids && keyRecord.hwids.length > 0) {
-                hwidDisplay = keyRecord.hwids.map((h: any, i: number) => `${i+1}. \`${h.hwid_value || h}\``).join('\n');
+            const hwidsList = keyRecord.hwids || [];
+            let hwidDisplay = 'ไม่มี HWID ผูกไว้ (0/3)';
+            if (hwidsList.length > 0) {
+                hwidDisplay = hwidsList.map((h: any, i: number) => `${i + 1}. ${h.custom_name ? `**${h.custom_name}**: ` : ''}\`${h.hwid_value || h}\``).join('\n');
             }
 
             const embed = new EmbedBuilder()
@@ -390,7 +391,7 @@ export async function handleMessageCreate(message: Message) {
                 .addFields(
                     { name: '👤 เจ้าของ Key', value: keyRecord.discord_id ? `<@${keyRecord.discord_id}> (\`${keyRecord.discord_id}\`)` : 'ไม่ระบุ', inline: true },
                     { name: '🏷️ ชื่อ Key', value: keyRecord.custom_name || 'VIP Key', inline: true },
-                    { name: '🖥️ HWID', value: hwidDisplay, inline: false },
+                    { name: `🖥️ HWID (${hwidsList.length}/3)`, value: hwidDisplay, inline: false },
                     { name: '📅 สร้างเมื่อ', value: keyRecord.created_at ? `<t:${Math.floor(new Date(keyRecord.created_at).getTime() / 1000)}:f>` : 'ไม่ทราบ', inline: false }
                 )
                 .setTimestamp();
