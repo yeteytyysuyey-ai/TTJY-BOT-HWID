@@ -8,7 +8,8 @@ import {
     ButtonInteraction,
     EmbedBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    MessageFlags
 } from 'discord.js';
 import { panelCommand } from '../commands/panel';
 import { panda } from '../panda';
@@ -31,7 +32,7 @@ export async function handleInteraction(interaction: Interaction) {
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ content: '❌ An error occurred while processing this interaction.' }).catch(() => null);
             } else {
-                await interaction.reply({ content: '❌ An error occurred while processing this interaction.', ephemeral: true }).catch(() => null);
+                await interaction.reply({ content: '❌ An error occurred while processing this interaction.', flags: MessageFlags.Ephemeral }).catch(() => null);
             }
         }
     }
@@ -44,7 +45,7 @@ async function handleButton(interaction: ButtonInteraction) {
 
     // Show Keys
     if (customId === 'keys') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         if (!supabase) {
             return interaction.editReply('❌ Database not initialized.');
         }
@@ -446,7 +447,7 @@ async function handleButton(interaction: ButtonInteraction) {
     }
 
     else if (customId === 'admin_btn_stats') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) {
             return interaction.editReply('❌ Unauthorized.');
@@ -504,9 +505,9 @@ async function handleButton(interaction: ButtonInteraction) {
                 await targetUser.send(`🎉 **การชำระเงินผ่าน TrueMoney Cash Card ได้รับการอนุมัติแล้ว!**\n\n🔑 **Key:** \`${generatedKey}\`\n⏳ **อายุ:** 30 วัน\n\nคุณสามารถนำ Key ไปผูก HWID ผ่านเมนู **Add HWID** ได้เลยครับ!`);
             }
 
-            await interaction.followUp({ content: `✅ อนุมัติและสร้าง Key ให้ <@${targetUserId}> เรียบร้อย: \`${generatedKey}\``, ephemeral: true });
+            await interaction.followUp({ content: `✅ อนุมัติและสร้าง Key ให้ <@${targetUserId}> เรียบร้อย: \`${generatedKey}\``, flags: MessageFlags.Ephemeral });
         } catch (err: any) {
-            await interaction.followUp({ content: `❌ Error: ${err.message}`, ephemeral: true });
+            await interaction.followUp({ content: `❌ Error: ${err.message}`, flags: MessageFlags.Ephemeral });
         }
     }
 
@@ -519,7 +520,7 @@ async function handleButton(interaction: ButtonInteraction) {
             await targetUser.send(`❌ **คำขอซื้อ Key ผ่าน TrueMoney Cash Card ของคุณถูกปฏิเสธ**\nกรุณาตรวจสอบรหัสบัตรเงินสดแล้วลองใหม่อีกครั้ง หรือติดต่อ Admin ครับ`);
         }
 
-        await interaction.followUp({ content: `❌ ปฏิเสธคำขอของ <@${targetUserId}> เรียบร้อยแล้ว`, ephemeral: true });
+        await interaction.followUp({ content: `❌ ปฏิเสธคำขอของ <@${targetUserId}> เรียบร้อยแล้ว`, flags: MessageFlags.Ephemeral });
     }
 }
 
@@ -531,7 +532,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const link = interaction.fields.getTextInputValue('input_tw_link');
         const customName = interaction.fields.getTextInputValue('input_custom_name');
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const twPhone = process.env.TW_PHONE || '0000000000';
@@ -630,7 +631,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const cashcard = interaction.fields.getTextInputValue('input_cashcard_14');
         const customName = interaction.fields.getTextInputValue('input_custom_name');
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const adminId = process.env.ADMIN_ID;
         if (!adminId) {
@@ -672,7 +673,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const customName = interaction.fields.getTextInputValue('input_hwid_name').trim();
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (!supabase) {
             return interaction.editReply('❌ Database not initialized.');
@@ -728,7 +729,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
     else if (customId === 'modal_show_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (!supabase) {
             return interaction.editReply('❌ Database not initialized.');
@@ -769,7 +770,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (!supabase) {
             return interaction.editReply('❌ Database not initialized.');
@@ -816,7 +817,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
     else if (customId === 'modal_reset_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (!supabase) {
             return interaction.editReply('❌ Database not initialized.');
@@ -853,7 +854,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
         const link = interaction.fields.getTextInputValue('input_tw_link').trim();
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             if (supabase) {
@@ -945,7 +946,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
         const cashcard = interaction.fields.getTextInputValue('input_cashcard_14').trim();
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (supabase) {
             const { data, error: fetchError } = await supabase
@@ -980,7 +981,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 9. ADMIN: CREATE KEY =====
     else if (customId === 'modal_admin_gen') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
@@ -1027,7 +1028,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 10. ADMIN: FIND KEY =====
     else if (customId === 'modal_admin_find') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
@@ -1065,7 +1066,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 11. ADMIN: RESET HWID =====
     else if (customId === 'modal_admin_reset') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
@@ -1085,7 +1086,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 12. ADMIN: EXTEND KEY =====
     else if (customId === 'modal_admin_extend') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
@@ -1102,7 +1103,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 13. ADMIN: DELETE KEY =====
     else if (customId === 'modal_admin_delete') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
@@ -1123,7 +1124,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 14. ADMIN: BIND HWID (Max 3) =====
     else if (customId === 'modal_admin_add_hwid') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
@@ -1157,7 +1158,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
     // ===== 15. ADMIN: REMOVE SPECIFIC HWID =====
     else if (customId === 'modal_admin_del_hwid') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
         if (interaction.user.id !== adminId) return interaction.editReply('❌ Unauthorized.');
 
