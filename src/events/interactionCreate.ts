@@ -1,7 +1,6 @@
 import { Interaction, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ModalSubmitInteraction, ButtonInteraction, MessageFlags, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { panelCommand } from '../commands/panel';
 import { statsCommand } from '../commands/stats';
-import axios from 'axios';
 import { panda } from '../panda';
 import { supabase } from '../supabase';
 
@@ -29,31 +28,12 @@ async function handleButton(interaction: ButtonInteraction) {
             try {
                 let userKeys: any[] = [];
 
-                // 1. Fetch from Supabase if configured
+                // Fetch keys from Supabase (single source of truth)
                 if (supabase) {
                     const { data, error } = await supabase.from('keys').select('*').eq('discord_id', interaction.user.id);
                     if (!error && data) {
                         userKeys = data;
                     }
-                }
-
-                // 2. Fetch from Pandauth as enrichment/fallback
-                try {
-                    const pandaKeys = await panda.getKeysByDiscord(interaction.user.id);
-                    if (Array.isArray(pandaKeys) && pandaKeys.length > 0) {
-                        for (const pk of pandaKeys) {
-                            const val = pk.value || pk.key || pk.keyValue;
-                            if (val && !userKeys.some((k: any) => k.key_value === val)) {
-                                userKeys.push({
-                                    custom_name: pk.note || 'Pandauth Key',
-                                    key_value: val,
-                                    created_at: pk.createdAt || pk.created_at
-                                });
-                            }
-                        }
-                    }
-                } catch (pErr) {
-                    console.warn("Could not query Pandauth by discordId:", pErr);
                 }
 
                 const payload = panelCommand.renderPanel({ page: 'keys', myKeys: userKeys }) as any;
@@ -78,13 +58,6 @@ async function handleButton(interaction: ButtonInteraction) {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
-            const hwidNameInput = new TextInputBuilder()
-                .setCustomId('input_hwid_name')
-                .setLabel('Custom HWID Name')
-                .setPlaceholder('e.g., My Main PC')
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
-
             const hwidValueInput = new TextInputBuilder()
                 .setCustomId('input_hwid_value')
                 .setLabel('HWID String')
@@ -94,7 +67,6 @@ async function handleButton(interaction: ButtonInteraction) {
 
             addModal.addComponents(
                 new ActionRowBuilder<TextInputBuilder>().addComponents(keyInput),
-                new ActionRowBuilder<TextInputBuilder>().addComponents(hwidNameInput),
                 new ActionRowBuilder<TextInputBuilder>().addComponents(hwidValueInput)
             );
             await interaction.showModal(addModal);
@@ -126,7 +98,7 @@ async function handleButton(interaction: ButtonInteraction) {
         case 'show_hwids':
             const showModal = new ModalBuilder()
                 .setCustomId('modal_show_hwid')
-                .setTitle('Show Key HWIDs');
+                .setTitle('Show Key HWID');
             const showKeyInput = new TextInputBuilder()
                 .setCustomId('input_key_value')
                 .setLabel('Key Value (e.g. VIP-XXXX)')
@@ -371,7 +343,7 @@ async function handleButton(interaction: ButtonInteraction) {
         case 'admin_btn_addhwid':
             const adminAddHwidModal = new ModalBuilder()
                 .setCustomId('modal_admin_add_hwid')
-                .setTitle('Add HWID for Key');
+                .setTitle('Bind HWID to Key');
 
             const ahKeyInput = new TextInputBuilder()
                 .setCustomId('input_key_value')
@@ -387,17 +359,9 @@ async function handleButton(interaction: ButtonInteraction) {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
-            const ahNameInput = new TextInputBuilder()
-                .setCustomId('input_hwid_name')
-                .setLabel('HWID Label / Device Name')
-                .setPlaceholder('e.g. PC 2')
-                .setStyle(TextInputStyle.Short)
-                .setRequired(false);
-
             adminAddHwidModal.addComponents(
                 new ActionRowBuilder<TextInputBuilder>().addComponents(ahKeyInput),
-                new ActionRowBuilder<TextInputBuilder>().addComponents(ahHwidInput),
-                new ActionRowBuilder<TextInputBuilder>().addComponents(ahNameInput)
+                new ActionRowBuilder<TextInputBuilder>().addComponents(ahHwidInput)
             );
             await interaction.showModal(adminAddHwidModal);
             return;
@@ -449,7 +413,6 @@ async function handleButton(interaction: ButtonInteraction) {
     // Fallback for V1 buttons (if any are still active)
     if (customId.startsWith('approve_cc_') || customId.startsWith('approve_renew_cc_')) {
         const parts = customId.split('_');
-        // approve_cc_<userId>  OR  approve_renew_cc_<userId>
         const userId = parts[parts.length - 1];
         const isRenew = customId.startsWith('approve_renew_cc_');
         const msgContent = interaction.message.content;
@@ -483,7 +446,7 @@ async function handleButton(interaction: ButtonInteraction) {
 
                 await interaction.editReply('Renewed key and notified user.');
             } else {
-                // New key flow (original)
+                // New key flow
                 const keyNameMatch = msgContent.match(/Key Name: `(.*)`/);
                 const customName = keyNameMatch ? keyNameMatch[1] : 'CashCard VIP';
 
@@ -493,7 +456,6 @@ async function handleButton(interaction: ButtonInteraction) {
                     expirationType: "byDays",
                     expirationDays: 30,
                     isPremium: true,
-                    noHwidValidation: true,
                     discordId: userId,
                     note: `${customName} (Discord: ${userId})`
                 });
@@ -502,7 +464,8 @@ async function handleButton(interaction: ButtonInteraction) {
                     const { error: insertErr } = await supabase.from('keys').insert([{
                         discord_id: userId,
                         custom_name: customName,
-                        key_value: generatedKey
+                        key_value: generatedKey,
+                        hwid: null
                     }]);
                     if (insertErr) {
                         console.error("Supabase Insertion Error (Cash Card):", insertErr);
@@ -550,140 +513,16 @@ async function handleButton(interaction: ButtonInteraction) {
         }
         return;
     }
-
-    if (customId === 'btn_info') {
-        await interaction.reply({ content: 'Monthly Pricing Info: Gain access to exclusive premium features.', flags: MessageFlags.Ephemeral });
-    }
-    else if (customId === 'btn_buy') {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_buy_key')
-            .setTitle('Buy Monthly Plan');
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('discord_id')
-            .setLabel('Discord ID')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const customNameInput = new TextInputBuilder()
-            .setCustomId('custom_name')
-            .setLabel('Custom Key Name')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const voucherInput = new TextInputBuilder()
-            .setCustomId('voucher')
-            .setLabel('TrueMoney Voucher')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(discordIdInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(customNameInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(voucherInput)
-        );
-        await interaction.showModal(modal);
-    }
-    else if (customId === 'btn_show_keys') {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_show_keys')
-            .setTitle('Show Keys');
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('discord_id')
-            .setLabel('Discord ID')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(discordIdInput));
-        await interaction.showModal(modal);
-    }
-    else if (customId === 'btn_show_hwid') {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_show_hwid')
-            .setTitle('Show HWID');
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('discord_id')
-            .setLabel('Discord ID')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const actualKeyInput = new TextInputBuilder()
-            .setCustomId('actual_key')
-            .setLabel('Actual Key')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(discordIdInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(actualKeyInput)
-        );
-        await interaction.showModal(modal);
-    }
-    else if (customId === 'btn_add_hwid') {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_add_hwid')
-            .setTitle('Add HWID');
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('discord_id')
-            .setLabel('Discord ID')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const actualKeyInput = new TextInputBuilder()
-            .setCustomId('actual_key')
-            .setLabel('Actual Key')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(discordIdInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(actualKeyInput)
-        );
-        await interaction.showModal(modal);
-    }
-    else if (customId === 'btn_remove_hwid') {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_remove_hwid')
-            .setTitle('Remove HWID');
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('discord_id')
-            .setLabel('Discord ID')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const actualKeyInput = new TextInputBuilder()
-            .setCustomId('actual_key')
-            .setLabel('Actual Key')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const hwidInput = new TextInputBuilder()
-            .setCustomId('hwid')
-            .setLabel('HWID to Remove')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(discordIdInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(actualKeyInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(hwidInput)
-        );
-        await interaction.showModal(modal);
-    }
 }
 
 async function handleModal(interaction: ModalSubmitInteraction) {
     const { customId } = interaction;
 
-    // Placeholder responses for now
+    // ===== BUY (Cash Card — manual admin approval) =====
     if (customId === 'modal_buy_cashcard') {
         const cashcard = interaction.fields.getTextInputValue('input_cashcard_14');
         const customName = interaction.fields.getTextInputValue('input_custom_name');
-        
+
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const adminId = process.env.ADMIN_ID;
@@ -698,7 +537,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                     .setCustomId(`approve_cc_${interaction.user.id}`)
                     .setLabel('Done (Generate Key)')
                     .setStyle(ButtonStyle.Success);
-                
+
                 const rejectBtn = new ButtonBuilder()
                     .setCustomId(`reject_cc_${interaction.user.id}`)
                     .setLabel('Reject')
@@ -710,7 +549,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                     content: `**New Cash Card Topup Request**\nUser: <@${interaction.user.id}> (${interaction.user.username})\nUser ID: \`${interaction.user.id}\`\nKey Name: \`${customName}\`\nCash Card 14 Digits: \`${cashcard}\`\n\nPlease check the cash card. If valid, click Done to generate a key for the user.`,
                     components: [row]
                 });
-                
+
                 return interaction.editReply('Your cash card has been sent to the admin. Please wait for the admin to verify and send you the key.');
             } else {
                 return interaction.editReply('Could not find the admin user. Please contact the administrator.');
@@ -720,6 +559,8 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             return interaction.editReply('Failed to send request to admin.');
         }
     }
+
+    // ===== BUY (TrueMoney Gift Link — auto redeem) =====
     else if (customId === 'modal_buy') {
         const link = interaction.fields.getTextInputValue('input_tw_link');
         const customName = interaction.fields.getTextInputValue('input_custom_name');
@@ -751,7 +592,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                         locales: ['en-US']
                     },
                     headers: {
-                        'Referer': link,
+                        'Referer': 'https://gift.truemoney.com/campaign/',
                     },
                     responseType: 'json'
                 });
@@ -783,7 +624,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                         locales: ['en-US']
                     },
                     headers: {
-                        'Referer': link,
+                        'Referer': 'https://gift.truemoney.com/campaign/',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -802,26 +643,26 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply(`Redeem failed: ${redeemData.status?.message || 'Unknown'}`);
             }
 
-            // TRUE MONEY PAYMENT SUCCESS, GENERATE KEY
+            // PAYMENT SUCCESS — generate key via Panda (HWID validation disabled)
             const generatedKey = await panda.generateKey({
                 count: 1,
                 prefix: "VIP",
                 expirationType: "byDays",
                 expirationDays: 30,
                 isPremium: true,
-                noHwidValidation: true,
                 discordId: interaction.user.id,
                 note: `${customName} (Discord: ${interaction.user.id})`
             });
 
-            // Insert into Supabase keys table if configured
+            // Write key to DB — HWID starts as null (unbound)
             if (supabase) {
                 const { error: dbError } = await supabase
                     .from('keys')
                     .insert([{
                         discord_id: interaction.user.id,
                         custom_name: customName,
-                        key_value: generatedKey
+                        key_value: generatedKey,
+                        hwid: null
                     }]);
 
                 if (dbError) {
@@ -847,20 +688,10 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             return interaction.editReply('System error processing payment.');
         }
     }
-    else if (customId === 'modal_buy_key') {
-        const discordId = interaction.fields.getTextInputValue('discord_id');
-        const customName = interaction.fields.getTextInputValue('custom_name');
-        const voucher = interaction.fields.getTextInputValue('voucher');
-        await interaction.reply({ content: `Received Buy Key request for ${discordId} - ${customName}. Voucher: ${voucher}`, flags: MessageFlags.Ephemeral });
-    }
-    else if (customId === 'modal_show_keys') {
-        const discordId = interaction.fields.getTextInputValue('discord_id');
-        await interaction.reply({ content: `Received Show Keys request for ${discordId}`, flags: MessageFlags.Ephemeral });
-    }
 
+    // ===== ADD HWID — DB only, 1 HWID per key =====
     else if (customId === 'modal_add_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value');
-        const customName = interaction.fields.getTextInputValue('input_hwid_name');
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value');
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -870,7 +701,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
 
         try {
-            // 1. Fetch the key to ensure it belongs to the user
+            // 1. Fetch the key — must belong to the requesting user
             const { data, error: fetchError } = await supabase
                 .from('keys')
                 .select('*')
@@ -882,20 +713,16 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             }
 
             const keyRecord = data[0];
-            const currentHwids = keyRecord.hwids || [];
 
-            // 2. Check Max HWIDs limit (3)
-            if (currentHwids.length >= 3) {
-                return interaction.editReply('Maximum HWID limit (3) reached for this key.');
+            // 2. Enforce 1 HWID per key policy
+            if (keyRecord.hwid) {
+                return interaction.editReply(`❌ **This key already has an HWID bound.**\nCurrent HWID: \`${keyRecord.hwid}\`\n\nUse **Reset HWID** first if you want to rebind.`);
             }
 
-            // 3. Append to local DB array
-            currentHwids.push({ custom_name: customName, hwid_value: hwidValue });
-
-            // 4. Update Supabase
+            // 3. Write HWID to DB (single value — no array)
             const { error: updateError } = await supabase
                 .from('keys')
-                .update({ hwids: currentHwids })
+                .update({ hwid: hwidValue })
                 .eq('id', keyRecord.id);
 
             if (updateError) {
@@ -903,20 +730,15 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply('Failed to save HWID to database.');
             }
 
-            // Sync unbind with Pandauth so it doesn't reject new HWIDs
-            try {
-                await panda.resetHwid(keyValue);
-            } catch (e) {
-                // Ignore pandauth reset errors
-            }
-
-            return interaction.editReply(`Successfully bound HWID **${customName}** to key \`${keyValue}\`.`);
+            return interaction.editReply(`✅ **HWID bound successfully!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\`\n\nYour key is now locked to this device.`);
 
         } catch (err) {
             console.error(err);
             return interaction.editReply('System error processing HWID addition.');
         }
     }
+
+    // ===== SHOW HWID — from DB =====
     else if (customId === 'modal_show_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value');
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -937,23 +759,19 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             }
 
             const keyRecord = data[0];
-            const hwidsList = keyRecord.hwids || [];
 
-            if (hwidsList.length === 0) {
-                return interaction.editReply(`**Key:** \`${keyValue}\`\n\nNo HWIDs are currently bound to this key.`);
+            if (!keyRecord.hwid) {
+                return interaction.editReply(`**Key:** \`${keyValue}\`\n\n⚠️ No HWID is currently bound to this key.\nUse **Add HWID** to bind your device.`);
             }
 
-            let hwidText = `**Key:** \`${keyValue}\`\n\n**Bound HWIDs:**\n`;
-            hwidsList.forEach((hwid: any, i: number) => {
-                hwidText += `${i + 1}. \`${hwid.hwid_value}\` (${hwid.custom_name})\n`;
-            });
-
-            return interaction.editReply(hwidText);
+            return interaction.editReply(`**Key:** \`${keyValue}\`\n\n**Bound HWID:**\n\`${keyRecord.hwid}\``);
         } catch (e) {
-            console.error("Parse Note Error:", e);
+            console.error("Show HWID Error:", e);
             return interaction.editReply('Failed to fetch HWID data.');
         }
     }
+
+    // ===== REMOVE HWID — DB only =====
     else if (customId === 'modal_remove_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value');
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value');
@@ -965,7 +783,6 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
 
         try {
-            // 1. Fetch the key to ensure it belongs to the user
             const { data, error: fetchError } = await supabase
                 .from('keys')
                 .select('*')
@@ -977,19 +794,14 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             }
 
             const keyRecord = data[0];
-            const currentHwids = keyRecord.hwids || [];
 
-            // 2. Filter out the HWID
-            const newHwids = currentHwids.filter((h: any) => h.hwid_value !== hwidValue);
-
-            if (newHwids.length === currentHwids.length) {
-                return interaction.editReply('That HWID was not found on this key.');
+            if (keyRecord.hwid !== hwidValue) {
+                return interaction.editReply('That HWID is not bound to this key.');
             }
 
-            // 3. Update Supabase
             const { error: updateError } = await supabase
                 .from('keys')
-                .update({ hwids: newHwids })
+                .update({ hwid: null })
                 .eq('id', keyRecord.id);
 
             if (updateError) {
@@ -997,7 +809,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply('Failed to remove HWID from database.');
             }
 
-            return interaction.editReply(`Successfully removed HWID **${hwidValue}** from key \`${keyValue}\`.`);
+            return interaction.editReply(`✅ **HWID removed successfully.**\nKey \`${keyValue}\` is now unbound.`);
 
         } catch (err) {
             console.error(err);
@@ -1005,34 +817,33 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
+    // ===== RESET HWID — DB only, no Panda call =====
     else if (customId === 'modal_reset_hwid') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value');
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+        if (!supabase) {
+            return interaction.editReply('Database not initialized.');
+        }
+
         try {
-            // 1. Verify key ownership if Supabase is connected
-            if (supabase) {
-                const { data, error: fetchError } = await supabase
-                    .from('keys')
-                    .select('*')
-                    .eq('key_value', keyValue)
-                    .eq('discord_id', interaction.user.id);
+            const { data, error: fetchError } = await supabase
+                .from('keys')
+                .select('*')
+                .eq('key_value', keyValue)
+                .eq('discord_id', interaction.user.id);
 
-                if (fetchError || !data || data.length === 0) {
-                    return interaction.editReply('Invalid key or you do not own this key.');
-                }
-
-                // Clear bound HWIDs array in Supabase
-                await supabase
-                    .from('keys')
-                    .update({ hwids: [] })
-                    .eq('id', data[0].id);
+            if (fetchError || !data || data.length === 0) {
+                return interaction.editReply('Invalid key or you do not own this key.');
             }
 
-            // 2. Reset HWID in Pandauth
-            await panda.resetHwid(keyValue);
+            // Clear HWID in DB only — no Panda call needed
+            await supabase
+                .from('keys')
+                .update({ hwid: null })
+                .eq('id', data[0].id);
 
-            return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\n\nYour key is now ready to use on your new device/PC without Error 300.`);
+            return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\n\nYour key is now unbound. Use **Add HWID** to bind your new device.`);
         } catch (err: any) {
             console.error("Reset HWID Error:", err);
             return interaction.editReply(`Error resetting HWID: ${err.message || String(err)}`);
@@ -1072,14 +883,13 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
             const { gotScraping } = await import('got-scraping');
 
-            // Verify voucher
             const verifyUrl = `https://gift.truemoney.com/campaign/vouchers/${hash}/verify?mobile=${twPhone}`;
             let verifyData: any;
             try {
                 const verifyRes = await gotScraping.get({
                     url: verifyUrl,
                     headerGeneratorOptions: { browsers: ['firefox'], operatingSystems: ['windows'], locales: ['en-US'] },
-                    headers: { 'Referer': link },
+                    headers: { 'Referer': 'https://gift.truemoney.com/campaign/' },
                     responseType: 'json'
                 });
                 verifyData = verifyRes.body;
@@ -1097,14 +907,13 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply(`จำนวนเงินไม่ถูกต้อง! ต้องการ ${expectedPrice} THB แต่ได้ ${voucherAmount} THB`);
             }
 
-            // Redeem voucher
             const redeemUrl = `https://gift.truemoney.com/campaign/vouchers/${hash}/redeem`;
             let redeemData: any;
             try {
                 const redeemRes = await gotScraping.post({
                     url: redeemUrl,
                     headerGeneratorOptions: { browsers: ['firefox'], operatingSystems: ['windows'], locales: ['en-US'] },
-                    headers: { 'Referer': link, 'Content-Type': 'application/json' },
+                    headers: { 'Referer': 'https://gift.truemoney.com/campaign/', 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mobile: twPhone, voucher_hash: hash }),
                     responseType: 'json'
                 });
@@ -1117,8 +926,8 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 return interaction.editReply(`Redeem failed: ${redeemData.status?.message || 'Unknown'}`);
             }
 
-            // PAYMENT SUCCESS — Extend key via Pandauth
-            await panda.extendKey(keyValue, 30); // +30 days
+            // PAYMENT SUCCESS — extend key via Pandauth
+            await panda.extendKey(keyValue, 30);
 
             const adminId = process.env.ADMIN_ID;
             if (adminId) {
@@ -1136,14 +945,13 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
-    // ===== RENEW KEY (TrueMoney Cash Card) =====
+    // ===== RENEW KEY (TrueMoney Cash Card — manual admin approval) =====
     else if (customId === 'modal_renew_cashcard') {
         const keyValue = interaction.fields.getTextInputValue('input_key_value');
         const cashcard = interaction.fields.getTextInputValue('input_cashcard_14');
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        // Verify key belongs to user in Supabase
         if (supabase) {
             const { data, error: fetchError } = await supabase
                 .from('keys')
@@ -1191,7 +999,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
-    // ===== ADMIN MODAL: CREATE / GENERATE KEY FOR USER =====
+    // ===== ADMIN: CREATE / GENERATE KEY FOR USER =====
     else if (customId === 'modal_admin_gen') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1209,7 +1017,6 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                 expirationType: "byDays",
                 expirationDays: days,
                 isPremium: true,
-                noHwidValidation: true,
                 discordId: targetUserId,
                 note: `${keyName} (Discord: ${targetUserId})`
             });
@@ -1219,11 +1026,10 @@ async function handleModal(interaction: ModalSubmitInteraction) {
                     discord_id: targetUserId,
                     custom_name: keyName,
                     key_value: generatedKey,
-                    hwids: []
+                    hwid: null
                 }]);
             }
 
-            // Attempt DM to user
             let dmNotice = '✅ Sent key to user via DM.';
             try {
                 const targetUser = await interaction.client.users.fetch(targetUserId);
@@ -1241,7 +1047,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
-    // ===== ADMIN MODAL: FIND KEYS =====
+    // ===== ADMIN: FIND KEYS =====
     else if (customId === 'modal_admin_find') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1266,16 +1072,8 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
             let resultText = `🔍 **Search Results for:** \`${query}\` (${foundKeys.length} keys found)\n\n`;
             for (const [i, k] of foundKeys.entries()) {
-                const hwids = k.hwids || [];
-                resultText += `**${i+1}. ${k.custom_name}** (<@${k.discord_id}>)\nKey: \`${k.key_value}\`\nHWIDs (${hwids.length}/3):\n`;
-                if (hwids.length > 0) {
-                    hwids.forEach((h: any, hi: number) => {
-                        resultText += `  • \`${h.hwid_value}\` (${h.custom_name})\n`;
-                    });
-                } else {
-                    resultText += `  • (None bound)\n`;
-                }
-                resultText += '\n';
+                const hwidDisplay = k.hwid ? `\`${k.hwid}\`` : '(None bound)';
+                resultText += `**${i+1}. ${k.custom_name}** (<@${k.discord_id}>)\nKey: \`${k.key_value}\`\nHWID: ${hwidDisplay}\n\n`;
             }
 
             return interaction.editReply(resultText);
@@ -1284,7 +1082,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
-    // ===== ADMIN MODAL: RESET HWID =====
+    // ===== ADMIN: RESET HWID (DB only) =====
     else if (customId === 'modal_admin_reset') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1293,17 +1091,19 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
 
         try {
-            if (supabase) {
-                await supabase.from('keys').update({ hwids: [] }).eq('key_value', keyValue);
-            }
-            await panda.resetHwid(keyValue);
-            return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\nAll HWIDs unlinked in Database and Pandauth.`);
+            if (!supabase) return interaction.editReply('Database not initialized.');
+
+            // Reset HWID in DB only — no Panda call
+            const { error } = await supabase.from('keys').update({ hwid: null }).eq('key_value', keyValue);
+            if (error) throw new Error(error.message);
+
+            return interaction.editReply(`✅ **HWID Reset Successful!**\nKey: \`${keyValue}\`\nHWID cleared in database. User can now rebind on a new device.`);
         } catch (err: any) {
             return interaction.editReply(`❌ Reset Error: ${err.message}`);
         }
     }
 
-    // ===== ADMIN MODAL: EXTEND KEY =====
+    // ===== ADMIN: EXTEND KEY =====
     else if (customId === 'modal_admin_extend') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1320,7 +1120,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
-    // ===== ADMIN MODAL: DELETE KEY =====
+    // ===== ADMIN: DELETE KEY =====
     else if (customId === 'modal_admin_delete') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1341,7 +1141,7 @@ async function handleModal(interaction: ModalSubmitInteraction) {
         }
     }
 
-    // ===== ADMIN MODAL: ADD HWID =====
+    // ===== ADMIN: BIND HWID TO KEY (DB only, 1 per key) =====
     else if (customId === 'modal_admin_add_hwid') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1349,7 +1149,6 @@ async function handleModal(interaction: ModalSubmitInteraction) {
 
         const keyValue = interaction.fields.getTextInputValue('input_key_value').trim();
         const hwidValue = interaction.fields.getTextInputValue('input_hwid_value').trim();
-        const hwidName = interaction.fields.getTextInputValue('input_hwid_name').trim() || 'Admin Added HWID';
 
         try {
             if (!supabase) return interaction.editReply('Database not initialized.');
@@ -1358,21 +1157,18 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             if (!data || data.length === 0) return interaction.editReply(`❌ Key \`${keyValue}\` not found in database.`);
 
             const keyRecord = data[0];
-            const currentHwids = keyRecord.hwids || [];
-            if (currentHwids.length >= 3) return interaction.editReply(`❌ Key already has 3 HWIDs bound.`);
 
-            currentHwids.push({ custom_name: hwidName, hwid_value: hwidValue });
-            await supabase.from('keys').update({ hwids: currentHwids }).eq('id', keyRecord.id);
+            // Overwrite HWID (admin can force-bind)
+            const { error } = await supabase.from('keys').update({ hwid: hwidValue }).eq('id', keyRecord.id);
+            if (error) throw new Error(error.message);
 
-            try { await panda.resetHwid(keyValue); } catch (e) {}
-
-            return interaction.editReply(`✅ **Added HWID!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\` (${hwidName})\nCount: ${currentHwids.length}/3`);
+            return interaction.editReply(`✅ **HWID Bound!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\``);
         } catch (err: any) {
             return interaction.editReply(`❌ Error: ${err.message}`);
         }
     }
 
-    // ===== ADMIN MODAL: REMOVE HWID =====
+    // ===== ADMIN: REMOVE HWID (DB only) =====
     else if (customId === 'modal_admin_del_hwid') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const adminId = process.env.ADMIN_ID;
@@ -1388,15 +1184,15 @@ async function handleModal(interaction: ModalSubmitInteraction) {
             if (!data || data.length === 0) return interaction.editReply(`❌ Key \`${keyValue}\` not found in database.`);
 
             const keyRecord = data[0];
-            const currentHwids = keyRecord.hwids || [];
-            const newHwids = currentHwids.filter((h: any) => h.hwid_value !== hwidValue);
 
-            if (newHwids.length === currentHwids.length) {
-                return interaction.editReply(`❌ HWID \`${hwidValue}\` not found in this key.`);
+            if (keyRecord.hwid !== hwidValue) {
+                return interaction.editReply(`❌ HWID \`${hwidValue}\` is not bound to this key.`);
             }
 
-            await supabase.from('keys').update({ hwids: newHwids }).eq('id', keyRecord.id);
-            return interaction.editReply(`✅ **Removed HWID!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\``);
+            const { error } = await supabase.from('keys').update({ hwid: null }).eq('id', keyRecord.id);
+            if (error) throw new Error(error.message);
+
+            return interaction.editReply(`✅ **Removed HWID!**\nKey: \`${keyValue}\`\nHWID: \`${hwidValue}\` cleared.`);
         } catch (err: any) {
             return interaction.editReply(`❌ Error: ${err.message}`);
         }

@@ -23,16 +23,13 @@ export interface GenerateKeyOptions {
     expirationDays?: number;
     expiresAt?: string;
     isPremium?: boolean;
-    noHwidValidation?: boolean;
     note?: string | null;
     discordId?: string | null;
 }
 
 export interface EditKeyOptions {
     note?: string | null;
-    hwid?: string | null;
     isPremium?: boolean;
-    noHwidValidation?: boolean;
     status?: string;
     expiresAt?: string;
     discordId?: string | null;
@@ -41,6 +38,7 @@ export interface EditKeyOptions {
 export const panda = {
     /**
      * Generate one or more keys and optionally bind Discord ID and Note to them.
+     * NOTE: noHwidValidation is always true — HWID is managed exclusively in our DB.
      */
     generateKey: async (options: GenerateKeyOptions = {}): Promise<string> => {
         try {
@@ -50,7 +48,8 @@ export const panda = {
                 prefix: options.prefix || 'VIP',
                 expirationType: expType,
                 isPremium: options.isPremium !== undefined ? options.isPremium : true,
-                noHwidValidation: options.noHwidValidation !== undefined ? options.noHwidValidation : true
+                // Always disable Panda HWID validation — we manage HWID in our own DB
+                noHwidValidation: true
             };
 
             if (expType === 'byDays') {
@@ -195,11 +194,11 @@ export const panda = {
     },
 
     /**
-     * Fetch every key bound to a Discord user (searches both generated and active keys).
+     * Fetch every key bound to a Discord user (searches active keys only).
      */
-    getKeysByDiscord: async (discordId: string, includeLoadstring: boolean = true) => {
+    getKeysByDiscord: async (discordId: string) => {
         try {
-            const url = `${PANDAUTH_API}/keys/api/key/by-discord?discordId=${encodeURIComponent(discordId)}${includeLoadstring ? '&includeLoadstring=1' : ''}`;
+            const url = `${PANDAUTH_API}/keys/api/key/by-discord?discordId=${encodeURIComponent(discordId)}`;
             const response = await axios.get(url, { headers });
             return response.data?.data || [];
         } catch (error: any) {
@@ -227,51 +226,6 @@ export const panda = {
         } catch (error: any) {
             console.error("Pandauth Delete Key Error:", error.response?.data || error.message);
             throw new Error(error.response?.data?.message || error.response?.data?.error || "Failed to delete key");
-        }
-    },
-
-    /**
-     * Reset HWID for a key (unbinds HWID).
-     */
-    resetHwid: async (key: string) => {
-        try {
-            const endpoints = [
-                { url: `${PANDAUTH_API}/keys/reset-hwid`, method: 'POST' as const, body: { key } },
-                { url: `${PANDAUTH_API}/keys/api/key/reset-hwid`, method: 'POST' as const, body: { key } },
-                { url: `${PANDAUTH_API}/keys/api/key`, method: 'PUT' as const, body: { key, hwid: null, noHwidValidation: true } },
-                { url: `${PANDAUTH_API}/keys/api/generated-key`, method: 'PUT' as const, body: { key, hwid: null, noHwidValidation: true } }
-            ];
-
-            for (const ep of endpoints) {
-                try {
-                    const res = await axios({
-                        method: ep.method,
-                        url: ep.url,
-                        data: ep.body,
-                        headers
-                    });
-                    if (res.data) return res.data;
-                } catch (e) {
-                    // Continue to next endpoint
-                }
-            }
-            return { success: true };
-        } catch (error: any) {
-            console.error("Pandauth Reset HWID Error:", error.response?.data || error.message);
-            throw new Error(error.response?.data?.message || error.response?.data?.error || "Failed to reset HWID");
-        }
-    },
-
-    /**
-     * Check key binding status.
-     */
-    checkBinding: async (key: string) => {
-        try {
-            const response = await axios.get(`${PANDAUTH_API}/keys/api/key/binding?key=${encodeURIComponent(key)}`, { headers });
-            return response.data?.data;
-        } catch (error: any) {
-            console.error("Pandauth checkBinding Error:", error.response?.data || error.message);
-            return null;
         }
     },
 
