@@ -20,6 +20,7 @@ const headers = {
 exports.panda = {
     /**
      * Generate one or more keys and optionally bind Discord ID and Note to them.
+     * NOTE: noHwidValidation is always true — HWID is managed exclusively in our DB.
      */
     generateKey: async (options = {}) => {
         try {
@@ -29,7 +30,8 @@ exports.panda = {
                 prefix: options.prefix || 'VIP',
                 expirationType: expType,
                 isPremium: options.isPremium !== undefined ? options.isPremium : true,
-                noHwidValidation: options.noHwidValidation !== undefined ? options.noHwidValidation : true
+                // Always disable Panda HWID validation — we manage HWID in our own DB
+                noHwidValidation: true
             };
             if (expType === 'byDays') {
                 payload.expirationDays = options.expirationDays !== undefined ? options.expirationDays : 30;
@@ -157,11 +159,11 @@ exports.panda = {
         }
     },
     /**
-     * Fetch every key bound to a Discord user (searches both generated and active keys).
+     * Fetch every key bound to a Discord user (searches active keys only).
      */
-    getKeysByDiscord: async (discordId, includeLoadstring = true) => {
+    getKeysByDiscord: async (discordId) => {
         try {
-            const url = `${PANDAUTH_API}/keys/api/key/by-discord?discordId=${encodeURIComponent(discordId)}${includeLoadstring ? '&includeLoadstring=1' : ''}`;
+            const url = `${PANDAUTH_API}/keys/api/key/by-discord?discordId=${encodeURIComponent(discordId)}`;
             const response = await axios_1.default.get(url, { headers });
             return response.data?.data || [];
         }
@@ -191,52 +193,6 @@ exports.panda = {
         catch (error) {
             console.error("Pandauth Delete Key Error:", error.response?.data || error.message);
             throw new Error(error.response?.data?.message || error.response?.data?.error || "Failed to delete key");
-        }
-    },
-    /**
-     * Reset HWID for a key (unbinds HWID).
-     */
-    resetHwid: async (key) => {
-        try {
-            const endpoints = [
-                { url: `${PANDAUTH_API}/keys/reset-hwid`, method: 'POST', body: { key } },
-                { url: `${PANDAUTH_API}/keys/api/key/reset-hwid`, method: 'POST', body: { key } },
-                { url: `${PANDAUTH_API}/keys/api/key`, method: 'PUT', body: { key, hwid: null, noHwidValidation: true } },
-                { url: `${PANDAUTH_API}/keys/api/generated-key`, method: 'PUT', body: { key, hwid: null, noHwidValidation: true } }
-            ];
-            for (const ep of endpoints) {
-                try {
-                    const res = await (0, axios_1.default)({
-                        method: ep.method,
-                        url: ep.url,
-                        data: ep.body,
-                        headers
-                    });
-                    if (res.data)
-                        return res.data;
-                }
-                catch (e) {
-                    // Continue to next endpoint
-                }
-            }
-            return { success: true };
-        }
-        catch (error) {
-            console.error("Pandauth Reset HWID Error:", error.response?.data || error.message);
-            throw new Error(error.response?.data?.message || error.response?.data?.error || "Failed to reset HWID");
-        }
-    },
-    /**
-     * Check key binding status.
-     */
-    checkBinding: async (key) => {
-        try {
-            const response = await axios_1.default.get(`${PANDAUTH_API}/keys/api/key/binding?key=${encodeURIComponent(key)}`, { headers });
-            return response.data?.data;
-        }
-        catch (error) {
-            console.error("Pandauth checkBinding Error:", error.response?.data || error.message);
-            return null;
         }
     },
     /**

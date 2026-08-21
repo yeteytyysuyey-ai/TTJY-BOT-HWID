@@ -1,5 +1,8 @@
+import path from 'path';
+import fs from 'fs';
 import {
     ActionRowBuilder,
+    AttachmentBuilder,
     ButtonBuilder,
     ButtonStyle,
     ContainerBuilder,
@@ -11,25 +14,43 @@ import {
     MediaGalleryItemBuilder
 } from 'discord.js';
 
+function getBannerAttachment(): AttachmentBuilder | null {
+    const candidatePaths = [
+        path.resolve(__dirname, '../../banner.png'),
+        path.resolve(__dirname, '../banner.png'),
+        path.resolve(process.cwd(), 'banner.png'),
+    ];
+    for (const p of candidatePaths) {
+        if (fs.existsSync(p)) {
+            return new AttachmentBuilder(p, { name: 'banner.png' });
+        }
+    }
+    return null;
+}
+
 export function renderPanel(state: any) {
 
     const container = new ContainerBuilder()
         .setAccentColor(0x2b2d31);
+
+    const files: AttachmentBuilder[] = [];
 
     if (state.page === 'main') {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent('# TTJY Hub'),
         );
 
-        container.addMediaGalleryComponents(
-            new MediaGalleryBuilder().addItems(
-                new MediaGalleryItemBuilder()
-                    .setURL('https://img1.pic.in.th/images/Simple_Showcase.png')
-                    .setDescription('TTJY Hub Banner')
-            )
-        );
-
-        new TextDisplayBuilder().setContent('Premium license management')
+        const banner = getBannerAttachment();
+        if (banner) {
+            files.push(banner);
+            container.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(
+                    new MediaGalleryItemBuilder()
+                        .setURL('attachment://banner.png')
+                        .setDescription('TTJY Hub Banner')
+                )
+            );
+        }
 
         container.addSeparatorComponents(
             new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)
@@ -108,7 +129,8 @@ export function renderPanel(state: any) {
 
     return {
         flags: MessageFlags.IsComponentsV2,
-        components: [container]
+        components: [container],
+        files
     };
 }
 

@@ -14,9 +14,7 @@ dotenv_1.default.config({ path: path_1.default.join(__dirname, '..', '.env') });
 const client = new discord_js_1.Client({
     intents: [
         discord_js_1.GatewayIntentBits.Guilds,
-        discord_js_1.GatewayIntentBits.DirectMessages,
-        discord_js_1.GatewayIntentBits.MessageContent,
-        discord_js_1.GatewayIntentBits.GuildMessages
+        discord_js_1.GatewayIntentBits.DirectMessages
     ],
     partials: [discord_js_1.Partials.Channel, discord_js_1.Partials.Message],
 });
