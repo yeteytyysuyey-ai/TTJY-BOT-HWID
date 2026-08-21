@@ -66,15 +66,9 @@ async function handleButton(interaction: ButtonInteraction) {
             .setTimestamp();
 
         for (const [idx, k] of userKeys.entries()) {
-            let hwidDisplay = '*(No devices bound)*';
-            const hwidsList = k.hwids || [];
-            if (hwidsList.length > 0) {
-                hwidDisplay = hwidsList.map((h: any, i: number) => `${i + 1}. \`${h.hwid_value || h}\` (${h.custom_name || 'Device'})`).join('\n');
-            }
-
             embed.addFields({
                 name: `${idx + 1}. ${k.custom_name || 'VIP Key'}`,
-                value: `**Key:** \`${k.key_value}\`\n**Created:** <t:${Math.floor(new Date(k.created_at).getTime() / 1000)}:R>\n**Devices (${hwidsList.length}/3):**\n${hwidDisplay}`
+                value: `Key: \`${k.key_value}\``
             });
         }
 
