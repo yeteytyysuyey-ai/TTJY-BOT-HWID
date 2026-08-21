@@ -24,7 +24,7 @@ export function renderPanel(state: any) {
         container.addMediaGalleryComponents(
             new MediaGalleryBuilder().addItems(
                 new MediaGalleryItemBuilder()
-                    .setURL('https://img2.pic.in.th/Screenshot-2026-08-21-201655.png')
+                    .setURL('https://img1.pic.in.th/images/Simple_Showcase.png')
                     .setDescription('TTJY Hub Banner')
             )
         );
