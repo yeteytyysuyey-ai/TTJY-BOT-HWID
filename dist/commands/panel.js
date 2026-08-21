@@ -9,7 +9,7 @@ function renderPanel(state) {
     if (state.page === 'main') {
         container.addTextDisplayComponents(new discord_js_1.TextDisplayBuilder().setContent('# TTJY Hub'));
         container.addMediaGalleryComponents(new discord_js_1.MediaGalleryBuilder().addItems(new discord_js_1.MediaGalleryItemBuilder()
-            .setURL('https://media.discordapp.net/attachments/1466400064913150158/1477246553906348052/Simple_Showcase.png?ex=6a818c90&is=6a803b10&hm=b5484e1d2d261615c2aa692257acf3046ecae1fab2e4b9148a7c963230c990b3&=&format=webp&quality=lossless')
+            .setURL('https://github.com/yeteytyysuyey-ai/TTJY-BOT-HWID/blob/main/Screenshot%202026-08-21%20201655.png')
             .setDescription('TTJY Hub Banner')));
         new discord_js_1.TextDisplayBuilder().setContent('Premium license management');
         container.addSeparatorComponents(new discord_js_1.SeparatorBuilder().setDivider(true).setSpacing(discord_js_1.SeparatorSpacingSize.Small));
